@@ -1,0 +1,111 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-02-20T10:02:43+10:00
+
++ WINBIND is a Linux service that mimics Windows clients to connect to AD
++ Samba NSS and PAM modules use winbind socket to connect to AD
++ By default, AD uses kerberos and NTLM as a fallback
+
+**WINBIND + AD**
+https://access.redhat.com/solutions/43065
+
+**CONFIG GENERATOR**
+https://access.redhat.com/labs/adih/
+
+**NTLM + SSSD**
+https://access.redhat.com/solutions/2433861
+
+
+**DISABLE NESTED GROUPS LOOKUP**
+winbind expand groups = 0
+winbind nested groups = no
+
+**REMOVE IDMAP CACHE DATA**
+# cd /var/lib/samba/ ; tar czvpf tdb-cache_$(date +%F_%H%M%S).tar.gz *.tdb
+# rm -rf /var/lib/samba/*.tdb
+
+
+**AD INTEGRATION**
+NOTE: Samba uses [[/var/lib/samba/smb_krb5/krb5.conf.{DOMAIN}]] instead of [[/etc/krb5.conf]]
+# yum install samba-client samba-winbind samba-winbind-clients
+RHEL 5
+# yum install samba3x-client samba3x-winbind
+CHECK DNS RESOLUTION
+# dig srv _ldap._tcp.dc._msdcs.domain.name
+NET ADS JOIN 
+# net ads join -U Administrator
+# net ads keytab create -U administrator
+# net ads keytab add HTTP -U administrator
+# net ads info
+# net ads leave
+# systemctl start winbind
+REALMD
+# realm discover
+# realm join ad.lab.example.net -U administrator
+# realm list --all
+# realm leave ad.lab.example.net --remove
+# realm join --client-software=winbind domain-name 
+
+UPDATE SMB.conf
+	[global]
+	workgroup = ADEXAMPLE
+	realm = ADEXAMPLE.COM
+	security = ADS
+	winbind enum users = yes
+	winbind use default domain = no
+	winbind separator = +
+	idmap config * : backend = autorid
+	idmap config * : range = 100000 - 1999999
+	idmap config * : rangesize = 1000000
+	template shell = [[/bin/bash]]
+	
+UPDATE PAM, NSS(nsswitch.conf), and HOMEDIRS 
+# authconfig --enablewinbind --enablemkhomedir --enablewinbindauth --update
+CONNECTIVITY CHECK
+# wbinfo -t 
+LIST AD USERS
+# wbinfo -u 
+LIST AD GROUPS
+# wbinfo -g 
+
+**IDMAP CONFIG**
+https://access.redhat.com/articles/1391423
+1) Using POSIX attributes in AD, the primary group is read from the gidNumber LDAP attribute 
+2) Using ID mapping, the RID of the primary group is read from the primaryGroupID attribute and ID-mapped (together with the domain SID) to a UNIX ID.
+
+**IDMAP ASSIGNMENT**
+# id <user>
+# wbinfo -i <user>
+# wbinfo --name-to-sid <user>
+# wbinfo --sid-to-uid <sid>
+<user> here is the problematic user.
+
+**TROUBLESHOOTING**
+NET ADS JOIN
+# net ads join -d 10
+# net ads info
+DEBUG LOGS
+# /etc/samba/smb.conf
+	[global]
+	log level = 10
+	debug pid = true
+	max log size = 0
+
+# wbinfo -k (kerberos)
+# wbinfo -a (netlogon)
+
+TRUSTED DOMAIN LOGIN (only works in Samba 4.6)
+
+**LOG FILES**
+log.winbindd (main)
+wb-domain (child domain)
+id-mapping (each domain)
+
+**DEBUGGING**
+net ads kerberos pac dump impersonate=user@EXAMPLE.COM
+wbinfo -a | -K
+smbclient
+SHOW CACHE 
+#net cache samlogon show 
+0 is user SID, others groups
+

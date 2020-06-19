@@ -1,0 +1,96 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-02-15T10:34:29+10:00
+
+https://access.redhat.com/documentation/en-us/red_hat_directory_server/10/
+
+**CERTIFICATE RENEWAL**
+https://access.redhat.com/solutions/41088
+
+**SERVICES**
+# redhat-idm-console & 
+  cn=Directory Manager
+  http://localhost:9830
+# systemctl start dirsrv@instance_name 
+# systemctl start dirsrv-admin
+
+**TLS/SSL**
+http://directory.fedoraproject.org/docs/389ds/howto/howto-ssl.html
+
+**QUERY ENCRYPTION CONFIG**
+# ldapsearch -x -W -D "cn=Directory Manager" -b "cn=encryption,cn=config"
+# ldapsearch -xLLL -H ldap://localhost:389 -D "cn=Directory Manager" -W -b 'cn=encryption,cn=config' -s base nsSSLEnabledCiphers -o ldif-wrap=no
+
+
+**TROUBLESHOOTING**
+HTTP output
+# redhat-idm-console -D 9 -f /tmp/tt.out
+Configuration file
+# vim [[/etc/dirsrv/slapd-<srv-inst]]>/dse.ldif
+Log file
+# [[/var/log/dirsrv/slapd-<srv-inst]]>/error
+https://access.redhat.com/documentation/en-US/Red_Hat_Certificate_System/8.1/html/Admin_Guide/java-logs.html#Configuring_Logs_in_the_CS.cfg_File
+CONSOLE DEBUG
+# redhat-idm-console -D 9:all -f [[/var/tmp/RHDSconsole.txt]]
+
+**PASSWORD POLICY**
+# ldapsearch -h vtcrx0242.swift.corp -p 389 -D "cn=directory manager" -W -b "uid=zguo,ou=People,dc=ldapprod,dc=swift,dc=com nscpentrywsi
+
+**CHAIN ON UPDATE (REPLICATION)**
+https://access.redhat.com/solutions/2743411
+
+**TUNABLES**
+Meanwhile, the Nunc Stans Support in the RHDS recent versions should allow to handle thousands of connections:
+	Nunc Stans Support in 389
+	http://www.port389.org/docs/389ds/design/nunc-stans.html
+
+It should be enabled in the recent RHDS versions.
+Otherwise, to enable it:
+
+# ldapmodify -h <HOST> -p<PORT>  -D "cn=Directory Manager" -W -x
+dn: cn=config
+changetype: modify
+replace: nsslapd-enable-nunc-stans
+nsslapd-enable-nunc-stans: on
+
+The other tuning parameters to check are:
+a) the number of file descriptors:
+	nsslapd-maxdescriptors
+	https://access.redhat.com/documentation/en-us/red_hat_directory_server/10/html/configuration_command_and_file_reference/core_server_configuration_reference#cnconfig-nsslapd_maxdescriptors_Maximum_File_Descriptors
+
+b) the total number of connections supported by the server:
+	nsslapd-conntablesize
+	https://access.redhat.com/documentation/en-us/red_hat_directory_server/10/html/configuration_command_and_file_reference/Core_Server_Configuration_Reference#cnconfig-nsslapd_conntablesize
+
+c) the maximum number of threads that a connection should use:
+	nsslapd-maxthreadsperconn
+	https://access.redhat.com/documentation/en-us/red_hat_directory_server/10/html/configuration_command_and_file_reference/core_server_configuration_reference#cnconfig-nsslapd_maxthreadsperconn_Maximum_Threads_per_Connection
+
+d) the maximum number of worker threads:
+	nsslapd-threadnumber
+	https://access.redhat.com/documentation/en-us/red_hat_directory_server/10/html/configuration_command_and_file_reference/core_server_configuration_reference#cnconfig-nsslapd_threadnumber_Thread_Number
+
+e) the idle timeout:
+	nsslapd-idletimeout
+	https://access.redhat.com/documentation/en-us/red_hat_directory_server/10/html/configuration_command_and_file_reference/core_server_configuration_reference#cnconfig-nsslapd_idletimeout_Default_Idle_Timeout
+
+f) the IOblock timeout ( useful when there are TLS connection ):
+	nsslapd-ioblocktimeout
+	https://access.redhat.com/documentation/en-us/red_hat_directory_server/10/html/configuration_command_and_file_reference/core_server_configuration_reference#cnconfig-nsslapd_ioblocktimeout_IO_Block_Time_Out
+
+
+**LOG / PSTACK / COREDUMP**
+1 ) The next time one of the servers stops, could you please gather a pstack?
+   # pstack $(pidof ns-slapd) > pstack.out
+
+2) If we do not gather enough information from the pstack, we would hope to gather a coredump from the ns-slapd process.  This would allow us to configure a Reproducer VM and analyze the core.
+
+   a) In order to capture a coredump, please follow these steps:
+	  "Directory Server is hanging and unresponsive, how do I gather information for troubleshooting?"
+	  https://access.redhat.com/solutions/2377811
+
+   b) If ns-slapd crashes but no core is generated, please follow these steps as well:
+	  "Setuid/suid handled processes (rpcbind, ns-slapd and others) do not generate a core dump file after a crash"
+	  https://access.redhat.com/solutions/967623
+
+

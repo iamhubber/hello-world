@@ -1,0 +1,25 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-02-15T10:59:34+10:00
+
+# ssh-keygen
+# ssh-copy-id
+# ssh-agent bash
+# ssh-add
+
+**SSH - SSSD CONFIG**
+/etc/ssh/sshd_config
+~~~
+GSSAPIAuthentication yes
+GSSAPICleanupCredentials yes
+KerberosAuthentication yes
+~~~
+
+/etc/ssh/ssh_config
+~~~
+GSSAPIAuthentication yes 
+GSSAPIDelegateCredentials yes
+~~~
+
+**DEBUG**
+# /usr/sbin/sshd -ddd -D 

@@ -1,0 +1,147 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-02-19T15:25:39+10:00
+
+https://access.redhat.com/documentation/en-US/Red_Hat_Directory_Server/8.0/html/Administration_Guide/Creating_Directory_Entries-Managing_Entries_from_the_Command_Line.html
+
+**LDAP COMMAND REFERENCE**
+https://access.redhat.com/documentation/en-US/Red_Hat_Directory_Server/8.1/html/Configuration_and_Command_Reference/Configuration_Command_File_Reference-Command_Line_Utilities-ldapsearch.html
+
+**OPTIONS**
+-b basedn (required)
+-s scope(required ex: base, one, or sub)
+-p port number 
+-h hostname
+-z maximum number of results
+-v search filter
+-x simple authentication
+-f file input (required)
+-p port
+-D bind ID with LDAP server
+-W password prompt
+-w password
+
+**X.500 ATTRIBUTES**
+DC      domainComponent
+O       organizationName
+OU      organizationalUnitName
+C       countryName
+ST      stateOrProvinceName
+L       localityName
+STREET  streetAddress
+CN      commonName
+UID     userid
+DN distingueshed name(combined all the above)
+
+**LDAP COMMAND LINE TOOLS**
+https://docs.oracle.com/cd/A97630_01/network.920/a96579/comtools.htm
+
+**TOP LEVEL**
+# ldapsearch -LLLx -D "cn=directory manager" -W -b "" -s base
+
+**LDAPMODIFY**
+Option 1:
+# ldapmodify -x -H ldap://localhost:389 -D "cn=Directory Manager" -w <password> << EOF
+--> Enter the below lines manually followed by line feed ----
+
+dn: cn=LX.MONASH.EDU IPA CA,cn=certificates,cn=ipa,cn=etc,dc=lx,dc=monash,dc=edu
+changetype: modify
+replace: cACertificate;binary
+cACertificate;binary:: <CERT_BLOB_FROM_STEP_2A>
+EOF
+^D to save
+
+Option 2:
+# ldapmodify -x -H ldap://localhost:389 -D "cn=Directory Manager" -w <password> -f cert.ldif
+# cat cert1.ldif
+dn: cn=LX.MONASH.EDU IPA CA,cn=certificates,cn=ipa,cn=etc,dc=lx,dc=monash,dc=edu
+changetype: modify
+replace: cACertificate;binary
+cACertificate;binary:: <CERT_BLOB_FROM_STEP_2A>
+
+**LDAPSEARCH**
+# ldapsearch -h 127.0.0.1 -D "cn=Directory Manager" -W -x -b "cn=ranges,cn=etc,dc=pslunix,dc=com"
+# ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config
+# ldapsearch -LLLx -W -D "cn=Manager,dc=mydomain,dc=local" -b dc=mydomain,dc=local dn
+# ldapsearch -x -z 200 -b 'dc=example,dc=com' -s sub -v '(uid=davis)'
+# ldapsearch -x cn=ldapuser01 -b dc=mydomain,dc=local
+# ldapsearch -xLLL -H ldap://localhost:389 -D "cn=Directory Manager" -W -b 'cn=config' -s sub -v '(cn=telephoneNumber)'
+# ldapsearch -xLLL -H ldap://localhost:389 -D "cn=Directory Manager" -W -b 'cn=Password Storage Schemes,cn=plugins,cn=config'
+
+# ldapsearch -D "cn=Directory Manager"  -b 'cn=configuration,cn=admin-serv-rhds10-1,cn=Red Hat Administration Server,cn=Server Group,cn=rhds10-1.testlab.example.com,ou=testlab.example.com,o=NetscapeRoot' -W
+
+GSSAPI
+# kinit admin
+# ldapsearch -Y GSSAPI -b "cn=masters,cn=ipa,cn=etc,dc=tenant,dc=ycsdev,dc=io"
+
+STARTTLS
+# ldapsearch -D "cn=directory manager" -W -h `hostname` -p 389 -b "dc=ipadomain,dc=local" -s sub -x -ZZ "(objectclass=*)"
+
+SSL
+# ldapsearch -D "cn=directory manager" -H ldaps://`hostname`:636 -b "dc=ipadomain,dc=local" -s sub -x -W "(objectclass=*)"
+
+**SEARCH USER**
+# ldapsearch -x -b "dc=rhev,dc=gsslab,dc=bne,dc=redhat,dc=com" -H ldap://10.64.24.251:389 -D "cn=Administrator,cn=users,dc=rhev,dc=gsslab,dc=bne,dc=redhat,dc=com" -W cn=test1
+
+
+# ldapsearch -x -b "dc=rhev,dc=gsslab,dc=bne,dc=redhat,dc=com" -H ldap://10.64.24.251:389 -D "cn=Administrator,cn=users,dc=rhev,dc=gsslab,dc=bne,dc=redhat,dc=com" -W "(&(objectClass=user)(uid=glenbabiano))"
+
+**GROUP SEARCH**
+# ldapsearch -D "cn=Administrator,cn=users,dc=rhev,dc=gsslab,dc=bne,dc=redhat,dc=com" -W -H ldap://ad-bne.rhev.gsslab.bne.redhat.com:389 -b "cn=users,dc=rhev,dc=gsslab,dc=bne,dc=redhat,dc=com" "(&(objectClass=group)(cn=*))"
+
+# ldapsearch -x -b "cn=users,dc=rhev,dc=gsslab,dc=bne,dc=redhat,dc=com" -H ldap://10.64.24.251:389 -D "cn=Administrator,cn=users,dc=rhev,dc=gsslab,dc=bne,dc=redhat,dc=com" -w RedHat1! "(&(objectClass=group)(cn=*))"
+
+member: CN=James,CN=Users,DC=rhev,DC=gsslab,DC=bne,DC=redhat,DC=com
+
+# ldapsearch -x -b "cn=users,dc=rhev,dc=gsslab,dc=bne,dc=redhat,dc=com" -H ldap://10.64.24.221:389 -D "cn=Administrator,cn=users,dc=rhev,dc=gsslab,dc=bne,dc=redhat,dc=com" -w RedHat1! "(&(member=CN=James,CN=Users,DC=rhev,DC=gsslab,DC=bne,DC=redhat,DC=com)(objectClass=group)(cn=*))"
+
+**LDAPPASSWD**
+# ldapsearch -h vtcrx0243.swift.corp -p 389 -D "cn=directory manager" -W -b "dc=ldapprod,dc=swift,dc=com" "(&(objectclass=ldapsubentry)(cn=*))"
+
+# ldappasswd -Z -h imt3v.enp.aramco.com.sa -x -D "cn=Directory Manager" -W -S "uid=alisa0x,cn=users,cn=accounts,dc=enp,dc=aramco,dc=com,dc=sa"
+
+**LDAPADD | LDAPMODIFY**
+# ldapadd -x -W -D "cn=admin,dc=example,dc=com" -f /tmp/file.ldif
+# ldapadd -x -W -D 'cn=config' -W -f /tmp/schema.ldif
+
+**LDAPDELETE**
+# ldapdelete -x -W -D "cn=admin,dc=example,dc=com" "uid=davis,uo=people,o=redhat,c=au,dc=example,dc=com"
+
+# ldapsearch -x -D "cn=directory manager" -W -b "cn=meToipatest2.example.local,cn=replica,cn=dc\3Dexample\2Cdc\3Dlocal,cn=mapping\ tree,cn=config"
+# ldapdelete -x -D "cn=directory manager" -W "cn=meToipatest2.example.local,cn=replica,cn=dc\3Dexample\2Cdc\3Dlocal,cn=mapping\ tree,cn=config"
+
+**SSL MANUAL**
+# LDAPTLS_CACERT=/etc/dirsrv/slapd-hqsorhds001/MDES20RHDS20Root20CA.pem ldapsearch -Z -H ldaps://hqsorhds002.mdes.ms.gov -D "cn=Directory Manager" -W -b "dc=access,dc=mdes,dc=ms,dc=gov" -s base
+
+**CHECK DNS RECORDS**
+ldapsearch -D "cn=Directory Manager" -W -b "dc=cae,dc=edu,dc=au" "(|(objectClass=idnszone)(objectClass=idnsforwardzone))"
+
+**CHECK LOADED SCHEMAS**
+-Q quite
+-LLL output in LDIF
+-Y low level ipc auth
+# ldapsearch -Q -LLL -Y EXTERNAL -H ldapi:/// -b cn=config dn |grep "schema"
+
+**CHECK POSIX ATTRIBUTES FOR AD USERS**
+# ldapsearch -x -LLL -b "cn=john,cn=users,dc=adexample,dc=com" -h 192.168.0.1 -D "cn=administrator,cn=users,dc=adexample,dc=com" -W
+
+**CHECK servicePrincipalName ATTRIBUTES FROM AD**
+ldapsearch -LLL -h servername.example.com -D "cn=administrator,cn=users,dc=example,dc=com" -W -b "dc=example,dc=com" servicePrincipalName=host/servername.example.com
+
+**ENABLE DEBUG LOGGING IN DIRECTORY SERVER**
+# ldapmodify -h localhost -D "cn=Directory Manager" -W -x << EOF
+//dn: cn=config//
+//changetype: modify//
+//replace: nsslapd-errorlog-level//
+//nsslapd-errorlog-level: 8192//
+EOF
+
+**CHECK ACCOUNT KRB PRINCIPAL IN IPA**
+# ldapsearch -x -h accauth4.acc.jlab.org -D "cn=Directory Manager" -W -b "dc=acc,dc=jlab,dc=org" krbprincipalname=dogtag/accauth4.acc.jlab.org@ACC.JLAB.ORG
+
+**DUMP ALL RECORDS**
+# ldapsearch -x -D "cn=Directory Manager" -W "objectclass=*"  >> all.ldif
+
+**CHECK HOST RECORDS IN AD**
+# ldapsearch -LLL -h 10.64.24.221 -D "administrator@rhev.gsslab.bne.redhat.com" -W -b "dc=rhev,dc=gsslab,DC=bne,DC=redhat,DC=com" | grep -i service |grep -i gwinbind
+

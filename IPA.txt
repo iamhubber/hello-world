@@ -1,0 +1,668 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-02-15T10:34:43+10:00
+
+**IDM-TECH RESOURCE**
+https://mojo.redhat.com/docs/DOC-1078167
+
+**SUPPORT FOR RHEL 5 (LEGACY CLIENTS)**
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/windows_integration_guide/trust-legacy
+
+**TRUST AGENT SETUP**
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/windows_integration_guide/trust-during#trust-config-agent
+
+**ACCOUNT LOCKOUT**
+https://access.redhat.com/articles/3327351
+
+**IPA DNS LOCATIONS**
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/linux_domain_identity_authentication_and_policy_guide/dns-locations
+
+**ID RANGE INCREASE**
+https://access.redhat.com/solutions/659243
+
+**IPA MANUAL RESTART**
+https://access.redhat.com/solutions/3146271
+
+**IPA CONSISTENCY CHECK**
+# ./ipa_check_consistency.sh -H "ipa1.example.com ipa2.example.com ipa3.example.com" -d example.com
+
+**IPA INTEGRATION OPTIONS**
+https://www.redhat.com/en/blog/i-really-cant-rename-my-hosts
+
+**IPA + RADIUS**
+https://docs.google.com/document/d/1LnkILkbIe5ORQctnSFzZ4KcU_r4mbCUgBsgZcy0li1A/edit#heading=h.1q1f53kypa1l
+
+**RESET IPA ADMIN PASSWORD**
+https://access.redhat.com/solutions/165853
+
+**IPA DIRSRV ACCESS LOGS**
+/var/log/dirsrv/slapd-IPA-MGMTAU-INGDIRECT-INTRANET/access
+
+**IPA CREATING A REPLICA**
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/linux_domain_identity_authentication_and_policy_guide/creating-the-replica
+
+**IPA LOCATIONS**
+https://www.freeipa.org/page/Howto/IPA_locations
+
+**IPA CERT PERMISSIONS (ra-agent)**
+https://access.redhat.com/solutions/3400091
+
+**RESET IPA DM PASSWORD**
+https://access.redhat.com/solutions/2142611
+
+**IPA KEYTAB LOCATIONS**
+/var/lib/ipa/gssproxy/http.keytab
+/etc/dirsrv/ds.keytab
+
+**IPA-AD SYNC**
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/identity_management_guide/managing-sync-agmt
+
+**IPA TRUST SETUP**
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/windows_integration_guide/trust-managing#ipa-in-ad-dns
+
+https://www.freeipa.org/page/Active_Directory_trust_setup#Debugging_trust
+
+**IPA-AD TRUST BASIC TROUBLESHOOTING**
+https://access.redhat.com/articles/2772181
+
+**IPA SETUP UPSTREAM**
+https://www.freeipa.org/page/Active_Directory_trust_setup
+
+**IPA OTP**
+https://www.freeipa.org/page/V4/OTP
+https://community.rsa.com/docs/DOC-86301
+
+**IPA REPLICA PREPARE /ROOT/CERT.P12**
+https://access.redhat.com/solutions/2108921
+
+**IPA CLIENT MANUAL INSTALL / CONFIGURE**
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/identity_management_guide/linux-manual
+
+# ipa ping
+Ensure that the following file reflects the correct IPA server being used:
+--------------------
+# cat /etc/ipa/default.conf
+--------------------
+
+**IPA REPLICATION CHECK**
+https://access.redhat.com/documentation/en-us/red_hat_directory_server/10/html/configuration_command_and_file_reference/shell_scripts#repl_monitorMonitor_replication_status
+
+ds-replcheck  -D  "cn=directory  manager"  -w [redacted] -m ldap://ost-adc-ipa-c01-mgmt.linux.ostrava.corp.telstra.com:389 -r ldap://ost-cdc-ipa-c01-mgmt.linux.ostrava.corp.telstra.com:389 -b "dc=linux,dc=ostrava,dc=corp,dc=telstra,dc=com" -Z /etc/dirsrv/slapd-LINUX-OSTRAVA-CORP-TELSTRA-COM 
+
+**ENABLE DEBUG ON CLI**
+"debug = true" in /etc/ipa/default.conf
+
+**IPA REPLICATION CLEAN-RUV**
+https://access.redhat.com/solutions/1529903
+
+== First, go to all IPA Servers and make sure there are no expired certificates: ==
+[root@s01 ~]# getcert list|grep "expires:"
+	expires: 2021-07-08 18:04:09 UTC
+	expires: 2021-07-08 18:03:27 UTC
+	expires: 2021-07-08 18:03:26 UTC
+	expires: 2021-07-08 18:03:27 UTC
+	expires: 2039-07-19 18:03:26 UTC
+	expires: 2021-07-08 18:03:26 UTC
+	expires: 2021-07-19 18:05:04 UTC
+	expires: 2021-07-19 18:05:41 UTC
+	expires: 2021-07-19 18:05:54 UTC
+
+
+== And that the cert-show proxy requests work: ==
+[root@s01 ~]# ipa cert-show 1
+  Issuing CA: ipa
+  Certificate: <BLAH>
+  Subject: CN=Certificate Authority,O=EL7IDM.STRIKER.LOCAL
+  Issuer: CN=Certificate Authority,O=EL7IDM.STRIKER.LOCAL
+  Not Before: Fri Jul 19 18:03:26 2019 UTC
+  Not After: Tue Jul 19 18:03:26 2039 UTC
+  Serial number: 1
+  Serial number (hex): 0x1
+  Revoked: False
+
+== Next, on the CRL Master, perform RUV cleanup tasks: ==
+How to remove dangling ruv with ldapmodify
+ - https://access.redhat.com/solutions/1529903
+1. List the corrupt RUVs:
+  # ipa-replica-manage list-ruv
+
+2. To clear the corrupt RUVs:
+  # ipa-replica-manage clean-dangling-ruv
+  (Old method, manual cleaning:)
+  # ipa-replica-manage clean-ruv <RUV ID>
+
+3. Check to see if corrupt RUVs are still listed:
+  # ipa-replica-manage list-ruv
+
+4. If the corrupt RUVs are still present, clear them manually:
+  # ldapmodify -x -D "cn=directory manager" -W
+dn: cn=clean <RID>,cn=cleanallruv,cn=tasks,cn=config
+objectclass: extensibleObject
+replica-base-dn: dc=example,dc=com
+replica-id: <RID>
+replica-force-cleaning: yes
+cn: clean <RID>
+[CTRL+D to Save and Close]
+
+Note: Execute the command in only one IPA server and for each corrupt RUV. Replace dc=example,dc=com by your root suffix.
+
+== Next, on each IPA Replica, perform a manual force-sync to the IPA CRL Master: ==
+  # ipa-replica-manage force-sync --from ipa-master-server.example.com
+
+**MANUAL CLEAN-RUV (only if above fails)**
+https://access.redhat.com/articles/2217151
+
+**IPA SERVER**
+# man ipa-server-install
+# yum install ipa-server -y (ipa-server-dns(optional))
+# ipa-server-install 
+# firewall-cmd --permanent --add-port={80/tcp,443/tcp,389/tcp,636/tcp,88/tcp,464/tcp,53/tcp,88/udp,464/udp,53/udp,123/udp} OR
+# firewall-cmd --permanent --add-service=freeipa-ldap
+
+**ADD UPN**
+1. Let us verify if the nswlrs.com.au domain is listed in the trust:
+# ipa trust-show
+
+2. If it's not, we can refresh IPA with the following command:
+# ipa trust-fetch-domains
+
+**DISABLE FIREWALL ON IPA**
+#  iptables -F ; iptables -F -t nat ; iptables -F -t mangle
+# iptables -L
+
+**Migrating Identity Management in Red Hat Enterprise Linux 6.x to Red Hat Enterprise Linux 7**
+https://access.redhat.com/articles/894063
+
+**REPLICA SERVER DELETE**
+On mgmtnipa01 (MASTER, WORKING)
+Verify config:
+ # ipa config-show --all
+ # ipa-replica-manage list -v
+ # ipa-csreplica-manage list -v
+Remove replica:
+ # ipa-replica-manage del mgmttipa01.ipa.mgmtau.ingdirect.intranet --force --cleanup
+ # ipa server-del mgmttipa01.ipa.mgmtau.ingdirect.intranet
+
+On mgmttipa01 (REPLICA, BROKEN)
+Uninstall:
+# ipa-server-install --uninstall
+# ipa-replica-manage del ipatest2.example.local --force --cleanup
+Install: 
+ # ipa-replica-install --setup-dns --no-forwarders --setup-ca --mkhomedir --no-ntp --principal admin --admin-password <admin-password> --server mgmtnipa01.ipa.mgmtau.ingdirect.intranet --domain ipa.mgmtau.ingdirect.intranet
+
+Edit /etc/resolv.conf to contain IPA master as DNS server
+Add the DNS A record(with reverse) in the main server via
+# yum install ipa-server ipa-server-dns -y
+# ipa-replica-install --setup-dns --setup-ca --no-forwarders --principal admin --admin-password RedHat1!
+
+**IPA DOMAIN LEVEL**
+# kinit admin
+# ipa domainlevel-get
+# ipa domainlevel-set 1
+
+**DOMAIN LEVEL 0 (<RHEL 7.2)**
+TO CREATE REPLICA, RUN THIS ON THE PRI SRV1
+# ipa-replica-prepare srv2.mydomain.local
+
+**DOMAIN LEVEL 1 (>RHEL 7.3 & IPA 4.4 ONLY)**
+TO CREATE REPLICA, RUN THIS ON THE PRI SRV1
+# ipa host-add replica1.example.local --random --ip-address=10.74.178.222
+# ipa hostgroup-add-member ipaservers --hosts replica1.example.local
+
+ON THE REPLICA
+# ipa-replica-install --password 'random_password_above' --server idm.example.local --domain example.local --setup-dns --no-forwarder
+WITHOUT THE RANDOM PW
+# ipa-replica-install --setup-dns --setup-ca --no-forwarders --principal admin --admin-password RedHat1!
+
+**REPLICA CHECK CONNECTION**
+# ipa-replica-conncheck --replica srv3.example.local
+
+**IPA** **CONFIGURATION** 
+# ipa config-show
+# ipa server-show
+# ipa server-find --servrole "CA server"
+
+**TOPOLOGY CHECK**
+# ipa topologysuffix-verify --help
+
+**TOPOLOGY SUFFIX (DATA STORE) **
+SUFFIX 
+  - Domain 
+  - CA 
+# ipa topologysuffix-find
+
+**TOPOLOGY SEGMENT (REPLICATION AGREEMENTS)**
+https://www.freeipa.org/page/V4/Manage_replication_topology#Plugin_configuration
+- A topology segment is created when a replication agreement defines a suffix to be synchronized between two replicas.
+# ipa topologysegment-add
+# ipa topologysegment-find
+STOP REPLICATION
+# ipa topologysegment-del
+REMOVE SERVER FROM TOPOLOGY
+srv1# ipa server-del → srv2
+srv2# ipa server-install --uninstall
+
+**REPLICATION**
+Note: Use ipa topologysegment-* commands to setup replications
+
+**RESOLVE CONFLICTS**
+DIRSRV:
+# ldapsearch -D "cn=Directory Manager" -W -b "dc=ipacomcast,dc=com"  "(&(objectClass=ldapSubEntry)(nsds5ReplConflict=*))" \* nsds5ReplConflict
+https://access.redhat.com/documentation/en-us/red_hat_directory_server/10/html/administration_guide/managing_replication-solving_common_replication_conflicts
+
+CERTS:
+# ldapsearch -D "cn=directory manager" -W -b ou=certificateProfiles,ou=ca,o=ipaca '(&(nsds5replconflict=*)(objectclass=ldapsubentry))'
+# ldapdelete -x -D "cn=Directory Manager" -W "cn=KDCs_PKINIT_Certs+nsuniqueid=164f1602-e70311e8-b7e0f15b-52758a9e,ou=certificateProfiles,ou=ca,o=ipaca"
+
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/identity_management_guide/ipa-replica-manage#repl-confl[[https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/identity_management_guide/ipa-replica-manage#repl-confli|i]][[https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/identity_management_guide/ipa-replica-manage#repl-conflic|c]][[https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/identity_management_guide/ipa-replica-manage#repl-conflict|t]][[https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/identity_management_guide/ipa-replica-manage#repl-conflicts|s]]
+
+
+**REPLICATION CONFLICT RE-INTIALIZE**
+https://access.redhat.com/solutions/129293
+# ipa-replica-manage re-initialize --from ipa-master.example.com
+
+**MANUAL RESOLVE CONFLICTS:**
+# ldapsearch -D "cn=directory manager" -W -b ou=certificateProfiles,ou=ca,o=ipaca '(&(nsds5replconflict=*)(objectclass=ldapsubentry))'
+And in case there are any conflicts please delete them with the following command:
+# ldapdelete -x -D "cn=Directory Manager" -W "<DN of conflict object>"
+
+
+**PROMOTING REPLICA TO CA MASTER**
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/linux_domain_identity_authentication_and_policy_guide/server-roles#server-roles-promote-to-ca
+
+**UNINSTALL REPLICA**
+# ipa-replica-manage del etoctilispidm01.idm.sgdcprod.sabre.com --force --cleanup
+# ipa-server-install --uninstall
+Manually remove all DNS entries from all zones.
+
+**IPA LOCATIONS**
+https://www.freeipa.org/page/Howto/IPA_locations
+
+**ADD DNS RECORDS**
+https://access.redhat.com/solutions/98043
+# ipa dnsrecord-add example.com _ldap._tcp --srv-rec="0 100 389 ipaserver2.example.com"
+# ipa dnsrecord-find example.com --name=_ldap._tcp
+# ipa dnsrecord-add cae.edu.au _ldap._tcp --srv-rec="0 100 389 master74" 
+# ipa dnsrecord-mod cae.edu.au _ldap._tcp --srv-rec="0 100 389 rep-del"
+# systemctl restart named-pkcs11
+
+**DNS DUMP**
+ldapsearch -D "cn=directory manager" -W -b "cn=dns,dc=tusimple,dc=ai"  > /tmp/dns.out
+
+**VERIFY FORWARD AND REVERSE DNS**
+# dig +short idm.lab.example.net A
+# dig +short -x 172.25.250.8
+
+**DELEGATE IPA NS RECORD IN EXT DNS** 
+# dig @IP_address +norecurse +short ipa.example.com. NS
+
+**AD TRUST**
+https://www.freeipa.org/page/Active_Directory_trust_setup
+https://www.freeipa.org/page/File:Trust-ad-demo-shared-secret.gif
+rhev.gsslab.bne.redhat.com RHEV.GSSLAB.BNE.REDHAT.COM 10.64.24.221
+
+ADD DNS RECORDS IN AD
+C:\> dnscmd 127.0.0.1 /ZoneAdd ipaexample.com /Forwarder 192.168.0.2
+C:\> dnscmd 127.0.0.1 /ClearCache
+
+INSTALL PACKAGES (RHEL 6)
+# yum install "*ipa-server" "*ipa-server-trust-ad" bind bind-dyndb-ldap ipa-server-dns
+# ipa-dns-install
+
+ADD HOSTNAME in
+# /etc/hosts
+SYNC TIME
+# ntpdate ad.example.com
+# systemctl start ntpd
+DNS CONFIG
+# /etc/resolv.conf -> point to AD DNS
+
+CREATE DNS RECORD TO FORWARD 
+# ipa dnsforwardzone-add rhev.gsslab.bne.redhat.com --forwarder=10.64.24.221 --forward-policy=first
+
+VERIFY DNS RECORDS
+# dig SRV _ldap._tcp.idmdomain.local
+# dig SRV _kerberos._tcp.whitehat.local
+INSTALL AD TRUST 
+# ipa-adtrust-install --netbios-name=IDMDOMAIN 
+# firewall-cmd --permanent --add-port={135/tcp,138/tcp,139/tcp,445/tcp,3268/tcp,138/udp,139/udp,389/udp,445/udp}
+# firewall-cmd --permanent --add-port=1024-1300/tcp
+
+ADD TRUST
+# ipa trust-add --type=ad rhev.gsslab.bne.redhat.com --admin Administrator --password --range-type=ipa-ad-trust --two-way=true
+
+VERIFY
+# ipa trust-find --all
+# ipa trust-domain-find
+
+MAP AD ADMIN GROUP TO IPA
+# ipa group-add ad_admins --desc='ad_domain admins' 
+**Add the external group to local group above**
+# ipa group-add ad_admins_external --external --desc='ad_domain admins external map' 
+# ipa group-add-member ad_admins_external 'RHEV\Domain Users' --external 
+# ipa group-add-member ad_admins --groups ad_admins_external
+
+UPDATE SSSD.conf
+subdomains_provider = ipa
+services = pac
+UPDATE KRB5.conf
+dns_lookup_realm = true
+dns_lookup_kdc = true 
+UPDATE DNS SERVER 
+# /etc/resolv.conf
+
+
+**ONE WAY TRUST VALIDATE**
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/windows_integration_guide/trust-during#creating-trusts
+# kinit user@AD.DOMAIN
+# kvno -S host ipaserver.example.com OR  kvno host/vuwunicoipatst1.ods.vuwtest.ac.nz@ODS.VUWTEST.AC.NZ
+# klist
+ Note: The TGT is named krbtgt/IPA.DOMAIN@AD.DOMAIN
+
+OPTION 2
+# export KRB5_TRACE=/dev/stderr
+# kdestroy -A
+# kinit <username>
+# kvno host/slv-btwtest1.dataplatform.airnz.co.nz
+# ldapsearch -Y GSSAPI -H ldap://akl0wc933.corp.ad.airnz.co.nz -b "dc=corp,dc=ad,dc=airnz,dc=co,dc=nz" -z 3
+
+**TWO WAY TRUST VALIDATE**
+# kinit ipauser@IPA.TEST
+# kvno host/other-host.ipa.test@IPA.TEST
+# kvno cifs/ad-dom-member.ad.test@AD.TEST
+
+**IPA** **CLIENT SETUP**
+# nmcli con mod eth0 ipv4.dns 172.10.0.1
+server# ipa host-add client.example.com --random --ip-address=10.10.92.72
+# yum install ipa-client
+# ipa-client-install --server=idm.ipaexample.com --domain=ipaexample.com --realm=IPAEXAMPLE.COM
+and UPDATE SSSD and KRB5 as above
+# ipa-client-automount
+RE-ENROLLING (WITH OLD KEYTAB ONLY, NEW KEYTAB WILL BE GENERATED)
+# ipa-client-install --force-join (interactive)
+# ipa-client-install --keytab /tmp/krb5.keytab (non-interactive)
+
+**WEBUI CERT**
+# ll /var/lib/ipa-client/pki/
+-rw-------. 1 root root 1307 Aug  1 08:40 ca-bundle.pem
+-rw-------. 1 root root 1307 Aug  1 08:40 kdc-ca-bundle.pem
+
+**ID-VIEWS**
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/windows_integration_guide/id-views
+https://access.redhat.com/solutions/1507883
+
+**CA FIND**
+# ipa ca-find --all --raw
+
+**BACKUP | RESTORE**
+https://access.redhat.com/solutions/626303
+# ipa-backup
+# ipa-backup --data
+# ipa-restore /path/to/backup
+
+**SRV MANAGEMENT**
+# ipactl start|stop|restart
+
+**GROUP MANAGEMENT**
+# ipa group-add group1
+# ipa group-del group1
+# ipa group-add-member group1 --users=user1 --users=user2 --groups=group1
+
+**BACKUP AND RESTORE**
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/linux_domain_identity_authentication_and_policy_guide/backup-restore
+
+**USERS AND GROUPS**
+# ipa group-find --external
+# ipa group-find --private
+
+**CHECK DNS RESOLUTION**
+# for i in _ldap._tcp _kerberos._tcp _kerberos._udp _kerberos-master._tcp_kerberos-master._udp _kpasswd._tcp _kpasswd._udp _ntp._udp; do echo ""; dig @10.16.77.9 ${i}.lxdev.sys.cigna.com srv +nocmd +noquestion +nocomments +nostats +noaa +noadditional +noauthority; done|egrep -v "^;"|egrep _
+
+**QUERY AD (ACTING AS DNS)**
+[root@srv1 ~]# dig +short -t SRV _kerberos._udp.dc._msdcs.rhev.gsslab.bne.redhat.com.
+[root@srv1 ~]# dig +short -t SRV _ldap._tcp.dc._msdcs.rhev.gsslab.bne.redhat.com.
+**QUERY IPA(IF FORWARDING)**
+[root@srv1 ~]# dig +short -t SRV _kerberos._udp.whitehat.local.
+[root@srv1 ~]# dig +short -t SRV _ldap._tcp.whitehat.local.
+# dig @10.66.218.244 _ldap._tcp.cae.edu.au srv +nocmd +noquestion +nocomments +nostats +noaa +noadditional +noauthority|egrep -v "^;"|egrep _
+
+**ADD DNS SERVER RECORDS**
+https://access.redhat.com/solutions/98043
+
+**MIGRATION**
+https://access.redhat.com/articles/2949931
+
+**SERVICE TGT DELEGATION ON HOST** 
+# ipa host-mod -ok-as-delegate=true hostname
+
+**SRV RECORDS**
+https://access.redhat.com/solutions/98043
+
+**USE SPECIFIC AD ON IPA-AD TRUST**
+https://access.redhat.com/solutions/3220321
+
+**FINE TUNING**
+SERVER
+subdomain_inherit = ignore_group_members, ldap_purge_cache_timeout
+ignore_group_members = True
+ldap_purge_cache_timeout = 0
+dns_resolver_timeout = 60
+CLIENT
+ldap_search_timeout = 20
+
+**REPLICATION**
+https://access.redhat.com/solutions/129293
+
+**SUBDOMAIN CONFIGURATION**
+https://docs.pagure.org/SSSD.sssd/design_pages/subdomain_configuration.html
+# sssctl domain-list
+
+   -> **IN** **IPA-AD TRUST**
+1) Configuration is done on the IPA Server only
+ad_server
+ad_site
+Optional configs only for Joined domain(not trusted domain)
+ldap_use_tokengroups = false
+ldap_group_search_base = CN=Users,DC=win,DC=trust,DC=test?sub?(|(cn=domain users)(cn=sudogroup))
+
+   -> **IN DIRECT INTEGRATION**
+1) same config as Trust setup is done on the host
+
+**TROUBLESHOOTING**
+# ipa config-show
+See individual service page 
+# ipa help commands
+# ipa hep topics
+# ipa-client install -d (or --debug)
+WebUI
+/var/log/httpd/error_log
+/etc/ipa/default.conf 
+	[global] 
+	debug = True
+DNS issues. Point all dns entries in the following to one ip
+/etc/ipa/default.conf, /etc/krb5.conf, /etc/sssd/sssd.conf 
+
+AS_REQ = Authentication Server REQ
+TGS_REQ = Ticket Granting Server REQ
+
+DUMP ALL CONFIG
+ldapsearch -x -D "cn=Directory Manager" -W "objectclass=*"  >> all.ldif
+
+**DEADLOCKS**
+https://access.redhat.com/solutions/2051103
+
+**ERROR MESSAGES**
+ipa-replica-install fails with "The ipa-replica-install command failed, exception: RuntimeError: Certificate issuance failed (CA_REJECTED)"
+
+# ipa server-del etoctilispidm01.idm.sgdcprod.sabre.com
+# ipa-replica-manage del etoctilispidm01.idm.sgdcprod.sabre.com --force --cleanup
+# ipa-replica-manage list-ruv | grep etoctilispidm01 
+If any ID's are returned by the above command, run following command:
+# ipa-replica-manage clean-ruv <id>  
+OR (with caution)
+# ipa-replica-manage --clean-dangling-ruv --force (use --force to not prompt for deletion) 
+remove pk11 records of the host from ldap database
+SRV HOST
+# ipa-server-install --uninstall
+
+**DEBUG**
+START IPA STDOUT DEBUG MODE
+# ipactl start -d
+
+"debug = true" in [[/etc/ipa/default.conf]]
+
+'/etc/ipa/server.conf' please add the following lines:
+[global]
+debug = True
+
+'/usr/share/ipa/smb.conf.empty' please add the following lines:
+[global]
+log level = 10
+
+'/etc/gssproxy/gssproxy.conf' please add the following lines:
+[gssproxy]
+debug = true
+debug_level = 3
+# systemctl restart gssproxy
+# ipactl restart
+
+IPA TRUST DEBUG
+https://access.redhat.com/solutions/1200193
+https://access.redhat.com/solutions/3346421
+
+SKIP DATABASE RECOVERY
+Create the following file with this contents:
+# vim /var/lib/dirsrv/slapd-UNX-ULALAUNCH-COM/db/guardian
+~~~
+  cachesize:200000000
+  ncache:0
+  version:5
+  locks:50000
+~~~
+# chown dirsrv:dirsrv /var/lib/dirsrv/slapd-UNX-ULALAUNCH-COM/db/guardian
+# chmod 600 /var/lib/dirsrv/slapd-UNX-ULALAUNCH-COM/db/guardian
+# ipactl start
+the guardian file allows to skip the database recovery. Then, it's deleted. And it's re-created if the server is shutdown gracefully.
+
+DATABASE IMPORT/EXPORT
+On source:
+   a) Stop IPA:
+	  [root@inf-prd-udc-04 ~]# ipactl stop
+   b) Export the userRoot database:
+	  [root@inf-prd-udc-04 ~]# /usr/lib64/dirsrv/<instance name>/db2ldif -n userRoot -r -a /tmp/userroot.ldif
+   c) Restart IPA:
+	  [root@inf-prd-udc-04 ~]# ipactl start
+   d) Copy the ldif file to inf-prd-udc-01:
+	  [root@inf-prd-udc-04 ~]# scp /tmp/userroot.ldif root@inf-prd-udc-01:/tmp
+On destination:
+   e) Set the permissions of that /tmp/userroot.ldif to 777:
+	  [root@inf-prd-udc-01 ~]# chmod 777 /tmp/userroot.ldif
+   f) Import the file into the database
+	  [root@inf-prd-udc-01 ~]# /usr/lib64/dirsrv/<instance name>/ldif2db -n userRoot -i /tmp/userroot.ldif
+   g) Start IPA:
+	  [root@inf-prd-udc-01 ~]#  ipactl start
+
+EXTRA
+# ipa config-mod --ipaconfigstring "KDC:Disable Last Success"
+
+**STEPS IN PROMOTING CLIENT TO REPLICA**
+1) First install the IPA replica as client. Replace the dummy values with actual values in all the steps. 
+# ipa-client-install --server=hpchipa03.kupe.niwa.co.nz --domain=kupe.niwa.co.nz --realm=NESI.ORG.NZ --hostname=hpcwipa01.mahuika.nesi.org.nz -p admin -w <admin password> --no-ntp -U
+   Note 1: Replace <admin password> with "admin" user password. 
+   Note 2: Verify if above parameters are correct.
+
+2) vi /etc/sssd/sssd.conf and remove "_srv_" from ipa_server attribute. 
+   From: ipa_server = _srv_, hpchipa03.kupe.niwa.co.nz
+   To: ipa_server = hpchipa03.kupe.niwa.co.nz
+
+3) vi /etc/ipa/default.conf and add the below entry under section "[global]"
+ ca_host = hpchipa03.kupe.niwa.co.nz
+
+4) Restart SSSD service
+   # systemctl stop sssd.service ; rm -f /var/lib/sss/db/* ; systemctl start sssd.service
+
+5) Install IPA Replica
+   # ipa-replica-install --setup-ca --setup-dns --no-forwarders -w 'testing' --skip-conncheck -U
+
+
+**DELETE/REMOVE TOMBSTONE**
+CASE #02328757
+QUERY:
+# ldapsearch -LLLx -h 127.0.0.1 -D "cn=Directory Manager" -W -b "o=ipaca" -x "(&(objectclass=nstombstone)(entryusn=*))" dn |wc -l
+# ldapsearch -LLLx -h 127.0.0.1 -D "cn=Directory Manager" -W -b "o=ipaca" -x "(objectclass=nstombstone)" dn |wc -l
+
+# dbscan -f /var/lib/dirsrv/slapd-PROD-SYMPROD-COM/db/ipaca/id2entry.db > id2entry-backup.txt
+
+OR
+
+# ldapsearch -x -h localhost -D "cn=Directory manager" -W -b 'dc=linux,dc=cslmfg,dc=net'  '(&(nsuniqueid=ffffffff-ffffffff-ffffffff-ffffffff)(objectclass=nstombstone))
+
+OPTION 1:
+10.4.25. usn-tombstone-cleanup.pl (Remove Deleted Entries)
+https://access.redhat.com/documentation/en-us/red_hat_directory_server/10/html/configuration_command_and_file_reference/perl_scripts#usn-tombstone-cleanup.pl
+
+OPTION 2:
+ENABLE/DISABLE REPLICATION
+# ldapsearch -LLLx -D "cn=directory manager" -W -b "cn=replica,cn=o\3Dipaca,cn=mapping tree,cn=config" dn
+
+cat << EOF > disable.repl.ipaca.ldif
+dn: cn=replica,cn=o\3Dipaca,cn=mapping tree,cn=config
+changetype: modify
+replace: nsds5ReplicaEnabled
+nsds5ReplicaEnabled: off
+EOF
+ldapmodify -D "cn=Directory Manager" -W -f disable.repl.ipaca.ldif
+
+cat << EOF > enable.repl.ipaca.ldif
+dn: cn=replica,cn=o\3Dipaca,cn=mapping tree,cn=config
+changetype: modify
+replace: nsds5ReplicaEnabled
+nsds5ReplicaEnabled: on
+EOF
+ldapmodify -D "cn=Directory Manager" -W -f enable.repl.ipaca.ldif
+
+REMOVE/PURGE COMMAND:
+ldapsearch -LLLx -o ldif-wrap=no -D "cn=directory manager" -W -b "cn=replica,cn=o\3Dipaca,cn=mapping tree,cn=config" nsds5replicapurgedelay nsds5replicatombstonepurgeinterval
+
+cat << EOF > /var/tmp/change.nsds5replicapurgedelay.ldif
+> dn: cn=replica,cn=o\3Dipaca,cn=mapping tree,cn=config
+> changetype: modify
+> replace: nsds5replicapurgedelay
+> nsds5replicapurgedelay: 36000
+> -
+> replace: nsds5replicatombstonepurgeinterval
+> nsds5replicatombstonepurgeinterval: 7200
+> EOF
+[root@avid4p03 ~]# cat /var/tmp/change.nsds5replicapurgedelay.ldif
+dn: cn=replica,cn=o\3Dipaca,cn=mapping tree,cn=config
+changetype: modify
+replace: nsds5replicapurgedelay
+nsds5replicapurgedelay: 36000
+-
+replace: nsds5replicatombstonepurgeinterval
+nsds5replicatombstonepurgeinterval: 7200
+[root@avid4p03 ~]# ldapmodify -x -D "cn=directory manager" -W  -f /var/tmp/change.nsds5replicapurgedelay.ldif
+Enter LDAP Password:
+modifying entry "cn=replica,cn=o\3Dipaca,cn=mapping tree,cn=config"
+
+[root@avid4p03 ~]# systemctl restart dirsrv@PROD-SYMPROD-COM.service
+
+**We have fixed the error "ipa: ERROR: Not allowed on non-leaf entry" by deleting the replication conflicts**:
+--------------------
+# ldapsearch -D "cn=Directory Manager" -W -b "dc=ipa,dc=au,dc=ingdirect,dc=intranet" "(&(objectClass=ldapSubEntry)(nsds5ReplConflict=*))" \* nsds5ReplConflict
+# ldapdelete -x -D "cn=Directory Manager" -W <DN>
+--------------------
+
+**IPA Trust add failed with the Error : "Fetching domains from trusted forest failed"**
+--------------------
+https://access.redhat.com/solutions/2263991
+--------------------
+
+
+
+**SOLUTION ON:** **ipa: ERROR: invalid 'PKINIT enabled server': all masters must have IPA master role enabled**
+# ldapdelete -x -D "cn=Directory Manager" -W "cn=ipa-replica.ipadomain.local,cn=masters,cn=ipa,cn=etc,dc=ipadomain,dc=local"
+
+
+ipa: ERROR: CIFS server communication error: code "3221225473", message "{Access Denied} A process has requested access to an object but has not been granted those access rights." (both may be "None")
+# ipa-replica-manage dnarange-show

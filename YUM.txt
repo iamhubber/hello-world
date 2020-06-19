@@ -1,0 +1,29 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-02-15T10:32:23+10:00
+
+**AUTO-SUBSCRIBE**
+# subscription-manager register --auto-attach --force
+https://access.redhat.com/solutions/253273
+
+# yum check-update
+# yum search all httpd
+# yum info httpd
+# yum list installed 
+# yum provides [[/var/www]]
+# yum whatprovides filename
+# yum clean all
+# yum localinstall httpd
+# yum repolist
+# yum-config-manager
+
+**PACKAGE CHECK**
+# rpm2cpio samba-3.6.9-151.el6.x86_64.rpm | cpio -tdmv | grep vfs_gpfs.so
+
+**How to apply specific errata advisory with yum?**
+https://access.redhat.com/solutions/2674381
+
+**DOWNGRADE**
+# yum downgrade samba-libs libwbclient samba-client-libs libsmbclient samba-common-tools samba-common samba-common-libs samba
+# yum install yum-plugin-versionlock
+# yum versionlock samba* libsmbclient libwbclient

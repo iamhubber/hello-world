@@ -1,0 +1,20 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-03-26T16:36:12+10:00
+
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/system-level_authentication_guide/certmongerx
+
+https://floblanc.wordpress.com/2016/12/06/using-certmonger-to-track-certificates/
+
+How do I manually renew Identity Management (IPA) certificates on RHEL6 after they have expired? (Master IPA Server)
+https://access.redhat.com/solutions/643753
+https://access.redhat.com/solutions/962373
+https://access.redhat.com/solutions/3357261
+
+
+SERVICE
+# systemctl status certmonger.service
+
+
+renewal helper
+28 days renewal

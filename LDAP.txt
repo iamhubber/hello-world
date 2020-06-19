@@ -1,0 +1,29 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-04-11T12:39:58+10:00
+
+http://www.openldap.org/faq/data/cache/2.html
+http://www.openldap.org/faq/data/cache/190.html
+
+
+
+
+**DEBUG**
+https://access.redhat.com/solutions/61010
+
+**FIX CRC OF DB**
+# systemctl stop slapd
+# yum install perl-Archive-Zip # in case it's not already installed
+# cp /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif /tmp
+# tail -n +3 /tmp/olcDatabase={2}bdb.ldif > /tmp/fixed.ldif
+# crc32 [[/tmp/fixed.ldif]]
+
+This will give us the checksum of the /tmp/fixed.ldif file. Add this value into /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif (2nd line) so that it reads like this:
+
+# AUTO-GENERATED FILE - DO NOT EDIT!! Use ldapmodify.
+# CRC32 here-goes-the-new-checksum
+
+**How to reset the configuration for slapd**
+  # pkill -9 slapd
+  # rm -fr /etc/openldap/slapd.d
+  # /usr/libexec/openldap/convirt-config.sh -f /etc/openldap/slapd.conf.bak

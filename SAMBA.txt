@@ -1,0 +1,176 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-03-15T09:32:00+10:00
+
+The Samba software suite is a collection of programs that implements the Server Message Block (commonly abbreviated as SMB) protocol for UNIX systems. This protocol is sometimes also referred to as the Common Internet File System (anaCIFS). Samba also implements the NetBIOS protocol in nmbd.
+
+Samba package uses winbind tool to interface with NSS and enables domain users to auth to AD.
+
+**UPGRADE** **FAILURE**
+samba-4.7.1-9 -->> samba-4.8.3-4
+Upgrading Samba to 4.8 requires winbind to be running(no more NTLMSSP) otherwise samba authentication will fail. In previous versions, it was failing back to NTLMSSP thus it was not required to run winbind. 
+
+**DOWNGRADE**
+# yum downgrade samba* libwbclient libsmbclient
+
+**MAP BUILTIN\Guests TO GROUP 'nobody'**
+# net -s /dev/null groupmap add sid=S-1-5-32-546 unixgroup=nobody type=builtin
+
+**NO SUPPORT FOR SAMBA + SSSD**
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/system_administrators_guide/ch-file_and_print_servers#setting_up_samba_as_a_domain_member
+
+https://access.redhat.com/articles/4355391
+
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/windows_integration_guide/smb-sssd#smb-sssd-switch
+
+**SUPPORTED SETUP IN RHEL 7 - 7.2**
+SSSD + CIFS plugin(sssd-libwbclient)
+SAMBA + AD Native protocols
+
+**SUPPORTED SETUP IN RHEL >7.2**
+SSSD (sssd-winbind-idmap)
+SAMBA + WINBIND 
+NOTE: Samba requires Winbind to be running so idmap = sss must be added in smb.conf so that UID/GID is consistent 
+
+USERS AND SECURITY
+https://www.samba.org/samba/docs/using_samba/ch09.html
+
+
+**IDMAP OPTIONS**
+https://access.redhat.com/articles/1391423
+
+**SSSD_IDMAP**
+https://access.redhat.com/solutions/3802321
+https://access.redhat.com/solutions/3699181
+https://access.redhat.com/solutions/3418261
+
+**RHEL 7 SERVER**
+Supports smb3 and lower
+**RHEL 7 CLIENT**
+Supports smb3 and lower
+**RHEL 5/6 SERVER**
+Supports smb1 and smb2
+**RHEL 5/6 CLIENT**
+Support smb1 only
+
+**MAN PAGES**
+https://www.samba.org/samba/docs/man/
+
+**NET ADS** = Tool for CIFS administration in Linux(smb.conf) uses winbind to connect to AD.
+**ADCLI** = Tool for joining a machine to AD, creates keytab. Does not configure auth such as SSSD.
+**REALMD** = Tool released in RHEL 7, used by SSSD to configure auth and domain membership. Uses ADCLI tool
+
+**FLUSH CACHE**
+# net cache flush
+
+**VERIFY CONNECTION TO AD**
+# net ads testjoin
+# net ads info
+# net ads join -d10
+# wbinfo --domain-users
+# wbinfo --domain-groups
+
+**SAMBA AS IPA CLIENT**
+https://www.freeipa.org/page/Howto/Integrating_a_Samba_File_Server_With_IPA
+
+**SAMBA SERVER WITH SSSD + AD AUTH IN 7.6**
+https://access.redhat.com/solutions/3802321
+
+**SAMBA SERVER WITH SSSD + AD AUTH**
+https://access.redhat.com/solutions/2221561
+
+**SAMBA SUPPORT**
+https://access.redhat.com/articles/369153
+
+**SAMBA + SSSD WITHOUT WINBIND**
+ON IDM SERVER, INSTALL ADTRUST 
+# ipa-adtrust-install
+ON CLIENT, VERIFY CONFIG
+# klist -k /etc/samba/samba.keytab
+# cat /etc/samba/smb.conf
+workgroup = IDM
+realm = IDM.lab.example.net
+security = ads
+dedicated keytab file = FILE:/etc/samba/samba.keytab
+kerberos method = dedicated keytab
+
+**NOTES**
+If you open 'idmap.ldb' and search for 513 (Domain Users RID), you will
+find:
+
+dn: CN=S-1-5-21-1768301897-3342589593-1064908849-513
+cn: S-1-5-21-1768301897-3342589593-1064908849-513
+objectClass: sidMap
+objectSid: S-1-5-21-1768301897-3342589593-1064908849-513
+type: ID_TYPE_GID
+xidNumber: 100
+distinguishedName: CN=S-1-5-21-1768301897-3342589593-1064908849-513
+ 
+As you can see 'Domain Users' is mapped to the Unix group '100' and if
+you look in /etc/group and search for '100', you will find this:
+
+users:x:100:
+
+This means that the Windows group is mapped to the Unix group 'users'
+on a DC, up until you give Domain Users a gidNumber, then the ID will
+change to the one you placed in the gidNumber attribute in Domain Users.
+
+
+**ERRORS**
+NT_STATUS_NO_MEMORY - Add "realm = <your-realm>" 
+
+**DEBUG**
+1) Please stop all running Samba processes (winbind,smb, nmb)
+--------------------
+# service winbind stop; service smb stop; service nmb stop;
+--------------------
+
+2) Let's remove existing log files from /var/log/samba/
+--------------------
+# rm -f /var/log/samba/*
+--------------------
+
+3) Please edit /etc/samba/smb.conf and add the following variables in the [global] section of the config:
+--------------------
+log level = 10
+debug pid = true
+max log size = 0
+--------------------
+
+4) Let's also collect info from Winbind.  Please add the following line to /etc/security/pam_winbind.conf:
+--------------------
+debug = yes
+--------------------
+
+5) Now let's start the processes again (winbind, smb, nmb) with these new settings in place:
+----- 
+ # service winbind start; service smb start; service nmb start
+--------------------
+ 
+6) Now, go to your PC and try to connect to the Samba share from there. 
+
+7) Please provide the following tar file, which will give us all the different log files we require:
+--------------------
+# tar cvfz /tmp/samba-debug_$(hostname | cut -d"." -f1)_$(date +%F).tar.gz /var/log/samba /var/log/messages
+
+
+**Run smbd in foregroud**
+# /usr/sbin/smbd -F -S -d 4
+
+# smbclient -k //`hostname`/ -d 10
+# smbclient -d 10 -U ntfieroch //m15015-vm-lin3/share
+# systemctl stop smb;
+# rm -f /var/log/samba/*
+# vim [[/etc/samba/smb.conf]]
+[global] 
+log level = 10
+debug pid = true
+ max log size = 0
+*** NOTE: If the variable 'log file' is set to anything other than the above, it should be commented out.
+	  This will allow log entries to be written to the standard log file names.
+# systemctl start smb;
+# date; smbclient //bpd-app05-v02.ocio.monash.edu/pmainimport -U 'SAMBA\username'
+
+
+'log level = 100' to [[/usr/share/ipa/smb.conf.empty]] does not require restarting httpd.
+You'll get SMB traffic debugging in /var/log/httpd/error_log.

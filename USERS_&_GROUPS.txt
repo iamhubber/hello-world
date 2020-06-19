@@ -1,0 +1,13 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-02-15T10:54:29+10:00
+
+# usermod -s [[/sbin/nologin]] user1
+# chage -d 0 user1
+
+**MANAGE GROUPS**
+# gpasswd
+# newgrp
+
+**NETGROUPS**
+https://www.linux.com/news/sysadmin-sysadmin-netgroups-are-not-just-nis-anymore

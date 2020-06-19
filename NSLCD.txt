@@ -1,0 +1,22 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-02-20T11:06:21+10:00
+
+Identity/Authentication client for LDAP servers
+
+# yum install nss-pam-ldapd
+# [[/etc/nslcd.conf]]
+# systemctl nslcd start
+
+**CONFIGURATION**
+https://access.redhat.com/solutions/62794
+
+
+**TROUBLESHOOTING**
+# nslcd -d
+# nslcd -dd 2>&1 | tee /tmp/nslcd.out
+
+Why does users listed in nss_initgroups_ignoreusers still cause ldap connections?
+https://access.redhat.com/solutions/46167
+Cannot login with local users when network connection is down
+https://access.redhat.com/solutions/56181

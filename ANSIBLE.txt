@@ -1,0 +1,111 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2019-07-21T21:19:12+10:00
+
+
+**SUBSCRIPTION**
+# subscription-manager register --auto-attach --force
+# subscription-manager refresh
+# subscription-manager list --available
+# subscription-manager attach --pool=<from results above>
+# subscription-manager repos --enable ansible-2.8-for-rhel-8-x86_64-rpms
+
+**YUM INSTALL**
+# yum install ansible -y
+# yum list installed platform-python
+
+**VIM** (.vimrc)
+autocmd FileType yaml setlocal ai ts=2 sw=2 et
+
+**ANSIBLE COMMANDS**
+# ansible --version
+
+**INVENTORY**
+/etc/ansible/hosts  =  default but not recommended
+List hosts
+# ansible washington1.example.com --list-hosts  
+List host groups
+# ansible internet --list-hosts
+List ungrouped hosts in ./inventory file
+# ansible ungrouped -i inventory --list-hosts
+
+**CONNECTION TYPES**
+smart  = all other hosts (explicitly defined in inventory, ssh is executed)
+local = localhost (implicitly defined, ssh is not executed)
+winrm = Windows machines
+
+To simulate ssh connection to localhost, add:
+# cat ./host_vars/localhost
+ ansible_connection: smart 
+
+To change connection on a "windows" group in inventory: 
+# cat ./group_vars/windows
+ansible_connection: winrm
+ansible_port: 5986
+
+**CONFIG FILE**
+1. ANSIBLE_CONFIG
+2. [[./ansible.cfg]]
+3. [[~/ansible.cfg]]
+4. [[/etc/ansible/ansible.cfg]]
+
+# ansible_config dump
+
+**SSH**
+# ssh keygen
+# ssh-copy-id root@web1.example.com
+
+**SUDO CONFIG**
+/etc/sudoers.d/sudo-someuser (owned by root , with permissions 0400):
+## password-less sudo for Ansible user
+someuser ALL=(ALL) NOPASSWD:ALL
+
+**HELP**
+List modules
+# ansible-doc -l
+
+Man page (module)
+# ansible-doc ping
+
+**ANSIBLE.CFG + ABOVE CONFIG**
+[defaults]
+inventory = ./inventory
+remote_user = someuser
+ask_pass = false
+
+[privilege_escalation]
+become = true
+become_method = sudo
+become_user = root
+become_ask_pass = false
+
+**ADHOC**
+# ansible dev -i inventory --list-hosts
+# ansible all -m copy a 'content="This server is managed by Ansible.\n" dest=/etc/motd' --become
+# ansible all -m command -a 'cat /etc/motd'
+
+**PLAYBOOK**
+# ansible-playbook --help
+Syntax check
+# ansible-playbook --syntax-check test.yml
+Dryrun
+# ansible-playbook -C test.yml
+
+# ansible-config dump |grep -i log
+# ansible-playbook intranet.yml --list-tasks
+# ansible-playbook intranet.yml --start-at-task="example task"
+# # ansible-playbook intranet.yml --step
+
+**DEBUGGING**
+1. Add logging params in ansible.conf
+log_path = logs/<ansible.log>
+
+2. Add verbosity on the command:
+
+
+**REGISTER | DEBUGGING**
+https://role.rhu.redhat.com/rol-rhu/app/courses/rh294-8.0/pages/ch04
+
+**VARIABLES AND ARRAYS**
+https://role.rhu.redhat.com/rol-rhu/app/courses/rh294-8.0/pages/ch04
+

@@ -1,0 +1,43 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-09-05T21:39:58+10:00
+
+TLS is the predecessor of SSL
+
+**SSL** **SESSION**
+**1)** **CLIENT**
+			   client connects to server
+client ---------------------------------------------------->> server
+				sends random numbers
+client ---------------------------------------------------->> server
+
+**2)** **SERVER**
+					server sends certificate to client
+client <<----------------------------------------------------- server
+					sends it's own random numbers
+client <<----------------------------------------------------- server
+
+**3)** **CLIENT**
+	   client verifies certificate, generate a session key based on the 2 random numbers, encrypt the session key   with the server's public key and sends the session key to server
+client ------------------------------------------------------->> server
+
+**4)** **CLIENT/SERVER**
+		server decrypts the session key with it's own private key, use the session key to start encrypted communication with the client
+client <<----------------------------------------------------->> server
+
+=========
+**COMMANDS**
+=========
+
+**EXPORT CERT FROM NSS TO PEM**
+# pk12util -o server-httpd-alias-export.p12 -d /etc/httpd/alias -n Server-Cert
+# openssl pkcs12 -in server-httpd-alias-export.p12 -out server-cert.pem -node
+
+**VERIFY CHAIN**
+# openssl verify -verbose -CAfile <(cat ca.crt) /etc/httpd/conf/server-cert.pem
+
+**VIEW CERTIFICATE FILES**
+# rct cat-cert [[/usr/share/ipa/html/ca.crt]]
+# openssl s_client -connect uxplptidm01.lx.tech-01.net:443 >/dev/null
+# openssl s_client -CAfile /etc/foreman-proxy/foreman_ssl_ca.pem -connect uxplptidm01.lx.tech-01.net:443 >/dev/null
+# openssl s_client -connect uxdlsdidm01.lx.drf01.net:443 -CAfile /etc/ipa/ca.cert -showcerts

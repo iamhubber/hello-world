@@ -1,0 +1,9 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-02-16T10:45:57+10:00
+
+SOS REPORT LOCATIONS
+**PUNE**
+# ssh foobar.gsslab.pnq.redhat.com
+**NA**
+# ssh gbabiano@fubar.gsslab.rdu2.redhat.com

@@ -1,0 +1,54 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-02-26T14:56:27+10:00
+
+**SUDO RULES IN AD DIRECT INTEGRATION**
+https://jhrozek.livejournal.com/3860.html
+
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html-single/linux_domain_identity_authentication_and_policy_guide/index#sudo-rules-user-group-support
+
+**SUDO RULES FOR LOCAL USERS IN IPA**
+https://jhrozek.wordpress.com/tag/freeipa/
+
+**CONFIGURE <7.1**
+# vim [[/etc/nsswitch.conf]]
+# vim [[/etc/sssd/sssd.conf]]
+# systemctl enable rhel-domainname.service
+# nisdomainname example.com
+# echo "NISDOMAIN=example.com" >> [[/etc/sysconfig/network]]
+
+**ADD COMMANDS**
+# ipa sudocmd-add /usr/bin/less --desc="For reading log files"
+# ipa sudocmdgroup-add files --desc="File editing commands"
+# ipa sudocmdgroup-add-member files --sudocmds "/usr/bin/vim"
+
+**ADD RULE**
+# ipa sudorule-add new_sudo_rule --desc="Rule for user_group"
+WHO
+# ipa sudorule-add-user new_sudo_rule --groups=user_group
+WHERE
+# q new_sudo_rule --hostgroups=host_group
+WHAT
+# ipa sudorule-mod new_sudo_rule --cmdcat=all
+OPTIONS
+# ipa sudorule-add-option new_sudo_rule
+VERIFY
+# ipa sudocmd-show
+# ipa sudogroup-show
+# ipa sudorule-show new_sudo_rule
+
+**VERIFY RIGHTS**
+idmuser # sudo -l -U username
+idmuser # sudo -ll
+
+**ENABLE SUDO SERVICE IN HOST**
+# systemctl enable sssd-sudo.socket
+# systemctl enable sssd-sudo.service
+
+
+
+**LDAP QUERY**
+# /usr/bin/ldapsearch -H ldap://NAMUATDCNJ003.namuat.nsrootuat.dyn.nsroot.net. -Q -Y GSSAPI -LLL -b "dc=namuat,dc=nsrootuat,dc=dyn,dc=nsroot,dc=net" -s sub '(&(objectclass=sudorole)(sudouser=emer_vk15388*))'
+
+"objectclass = sudoRole" is used to download the information from the server while;
+"objectclass = sudoRole" is used to query SSSD cache.

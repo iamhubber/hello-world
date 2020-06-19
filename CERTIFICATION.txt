@@ -1,0 +1,35 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2019-04-23T08:47:52+10:00
+
+Red Hat Individual Exam systems offered by Red Hat University
+
+ANSIBLE 2.3
+Control node requirements:
+- Python 2.7 and higher BUT lower than 3.0
+- yum install ansible
+
+Managed node requrements:
+- Python 2.6 or later
+- libselinux-python
+
+COMMANDS:
+List modules
+# ansible-doc -l
+
+Man page (module)
+# ansible-doc ping
+
+ADHOC
+# ansible dev -i inventory --list-hosts
+
+PLAYBOOK
+VIM (.vimrc)
+autocmd FileType yaml setlocal ai ts=2 sw=2 et
+
+# ansible-playbook --help
+Syntax check
+# ansible-playbook --syntax-check test.yml
+Dryrun
+# ansible-playbook -C test.yml
+

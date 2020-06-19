@@ -1,0 +1,8 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-02-15T10:52:28+10:00
+
+**List kernel modules**
+# yum list kernel
+**To change default kernel**
+# grub2-set-default 1|0

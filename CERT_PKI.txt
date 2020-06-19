@@ -1,0 +1,884 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-02-19T15:56:52+10:00
+
+https://www.freeipa.org/page/PKI
+
+**DEBUGGING GUIDE**
+https://docs.google.com/document/d/1rcCUCaGqLEc-WBE6m6VT2cH7dQaZxwV1PjhHuizI_Nw/edit#
+
+**CERT NOTES**
+https://docs.google.com/document/d/1rcCUCaGqLEc-WBE6m6VT2cH7dQaZxwV1PjhHuizI_Nw/edit#heading=h.c122k2azc43z
+
+**CERT LINKS**
+https://access.redhat.com/articles/3353041
+
+**CERT NEWS**
+https://access.redhat.com/articles/3353041
+
+**PORTS**
+LDAP must be listening on bot 389(other apps) and 636(pki-tomcat use)
+
+**DOGTAG CA VERIFY**
+# curl --cacert /etc/ipa/ca.crt --cert /var/lib/ipa/ra-agent.pem --key /var/lib/ipa/ra-agent.key https://`hostname -f`:8443/ca/agent/ca/displayBySerial?serialNumber=0x1 |head -50
+
+NOTE: this indicates that Dogtag CA is running, the agent port is listening and the agent certificate is valid for authentication to Dogtag CAtoast
+
+**RA AGENT VERIFY**
+# curl -v --cert /var/lib/ipa/ra-agent.pem --key /var/lib/ipa/ra-agent.key https://`hostname`:8443/ca/rest/agent/certrequests
+
+**CERT POINTERS**
+/etc/httpd/conf.d/nss.conf
+NSSNickname Server-Cert
+
+/etc/dirsrv/slapd-ODS-VUW-AC-NZ/dse.ldif 
+nsSSLPersonalitySSL: Server-Cert
+
+**VERIFY CA IS RUNNING**
+# curl --cacert /etc/ipa/ca.crt -v https://`hostname`:8443/ca/ee/ca/getCertChain
+
+**PEER CERTIFICATE CANNOT BE AUTHENTICATED WITH GIVEN CA CERTIFICATES**
+# SSL_DIR=/etc/httpd/alias/ curl -v -o /dev/null --cacert /etc/ipa/ca.crt https://`hostname`:8443/ca/agent/ca/profileReview
+SOLUTION:
+# certutil -M -d /etc/httpd/alias -n 'EXAMPLE.COM IPA CA' -t ,,
+# certutil -M -d /etc/httpd/alias -n 'EXAMPLE.COM IPA CA' -t CT,C,C
+
+
+**RECOVER OR EXPORT CA CERT** 
+# mkdir /tmp/secdb
+# certutil -d /tmp/secdb/ -N --empty-password
+# pk12util -i /root/cacert.p12 -d /tmp/secdb/
+# certutil -L -d /tmp/secdb/ -n "Server-Cert cert-pki-ca"
+
+**VERIFY CA SUBSYSTEM**
+# pki-server subsystem-show ca
+# ipa cert-show 1
+
+**CERT DATABASE STORE**
+PKI = NSSDB  + CS.cfg
+DIRSRV = NSSDB
+HTTP = NSSDB
+CERTMONGER = LDAP + ra-agent(auth to PKI)
+IPA CLI = ca.crt
+
+**PKI CERT FLOW**
+CERTMONGER                   			→        		IPA        				→       PKI tomcat(Dogtag)
+- invokes ipa cert-request via helper		- validates and forwards to Dogtag		- initiate renewal
+- requires valid http cert					- requires valid ipa-ra cert		- trust IPA SSL server cert
+
+Cert files → CS.cfg = ldap(modify ldap to match)
+
+**PKI BASIC AUTH**
+https://floblanc.wordpress.com/2017/09/11/troubleshooting-freeipa-pki-tomcatd-fails-to-start/
+
+/etc/pki/pki-tomcat/ca/CS.cfg:
+
++internaldb.ldapauth.authtype=BasicAuth
++internaldb.ldapauth.bindDN=cn=Directory Manager
++internaldb.ldapauth.bindPWPrompt=internaldb
+-internaldb.ldapauth.authtype=SslClientAuth
+-internaldb.ldapauth.bindDN=uid=pkidbuser,ou=people,o=ipaca
+
++internaldb.ldapconn.port=389
+-internaldb.ldapconn.port=636
+
++internaldb.ldapconn.secureConn=false
+-internaldb.ldapconn.secureConn=true
+
+
+**CERT REPLICATION CONFLICT**
+# start-dirsrv
+# ldapsearch -h 127.0.0.1 -D "cn=Directory Manager"  -W -b "o=ipaca" -x
+# ldapsearch -h 127.0.0.1 -D "cn=Directory Manager"  -W -b "ou=certificateProfiles,ou=ca,o=ipaca" -x '(&(nsds5replconflict=*)(objectclass=ldapsubentry))'
+# ldapsearch -h 127.0.0.1 -D "cn=Directory Manager"  -W -b "o=ipaca" -x '(&(nsuniqueid=ffffffff-ffffffff-ffffffff-ffffffff)(objectclass=nstombstone))'
+
+
+**LDAPMODIFY COMMAND**
+# ldapmodify -x -h 127.0.0.1  -D 'cn=Directory Manager' -W <<EOF
+dn: uid=ipara,ou=people,o=ipaca
+changetype: modify
+add: usercertificate
+usercertificate:: MIIDljCCAn6gAwIBAgICDIQwDQYJKoZIhvcNAQELBQAwRDEiMCAGA1UECgwZSVBBLkFVLklOR0RJUkVDVC5JTlRSQU5FVDEeMBwGA1UEAwwVQ2VydGlmaWNhdGUgQXV0aG9yaXR5MB4XDTE5MDQyNzA3NTM1MFoXDTIxMDQxNjA3NTM1MFowNTEiMCAGA1UEChMZSVBBLkFVLklOR0RJUkVDVC5JTlRSQU5FVDEPMA0GA1UEAxMGSVBBIFJBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuCLRHbPPoFqlz53eV1FgyRyk0jt3MIIvAGycQS/O27r8yJKLWPKYJGT3/G+HxNVzwj7kt0F3Gb8LNRV4KyL5S2vZM4fI1z+Zt9VJB8opLnJ/4dIqppDJEAlalVO15mp6cFLeo6BVxwqfxdqfEXwxvuD+MCk9mhx+ktbabfKM3FyT1h46TDLEZGS152R6g90xyG2YO9tSMLr5UBcNgCXZipq+ftjyw6FqVU/uSZ3iLtqm4jl8ryApe/02Ls+9ZLjc/JazzPt44Ik1j3gti7vQ2v2c+p1MpDfoTQfxJprb3Rna9EO7on4peTy+FHnLJ5b15xnOqFw3ZZUQJ+Qu+5ySUwIDAQABo4GgMIGdMB8GA1UdIwQYMBaAFCM3Piw688PCA086vctGr+ylxkPdMEsGCCsGAQUFBwEBBD8wPTA7BggrBgEFBQcwAYYvaHR0cDovL2lwYS1jYS5pcGEuYXUuaW5nZGlyZWN0LmludHJhbmV0L2NhL29jc3AwDgYDVR0PAQH/BAQDAgTwMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcDAjANBgkqhkiG9w0BAQsFAAOCAQEAFrvVKeeSlHOOg5RYfN6vXgJlZQa1OLDTR+tU4LU2mFnmDDwjdH+eTuTnJN38GdpOIXGSfiD6e07rRkfRStItE9z8tTg1cWQzuK1eNpr65BwkbcvtJlyjzTReFzlnYV1LwcwFnCx+MEjIYFs5Az4e48nBOAmO5x5DUeKd/Z71WwTOnu7jG2Lb3GPetOQYNEFzOBj63LG+M0fh0yQ1RHlOGm59Y116liyR34fTs/CmaV77EuxGilz1g1vEzhi1K2WonYe+rv9CFSspKwtZZ3oguyMxh4SODrimw6Lcl2NQ22jPw41yt2nAlxzVUOJ87Tp689koiPemGTBit+qOgkyUvg==
+-
+replace: description
+description: 2;3204;CN=Certificate Authority,O=IPA.AU.INGDIRECT.INTRANET;CN=IPA RA,O=IPA.AU.INGDIRECT.INTRANET
+EOF
+Ctrl-D
+
+**Proposed remediation steps for expired "Server-Cert cert-pki-ca" certificated (RHEL-7.6 only):**
+1. Determine serial number of current certificate:
+ # certutil -d /etc/pki/pki-tomcat/alias -L -n "Server-Cert cert-pki-ca" | grep "Serial Number"
+2. Execute the following program, using SERIAL given by above command
+# pki-server cert-create sslserver --temp --serial SERIAL
+3. If Step 2 succeeded, inspect the certificate created by the previous command:
+# openssl x509 -text < /etc/pki/pki-tomcat/certs/sslserver.crt |less
+NOTE: The certificate should have serial number SERIAL, The Extended Key Usage extension should
+assert TLS Server Authentication and the validity period should be three months, from the
+time it was created (i.e. a few moments ago). 
+4. If all looks OK, stop Dogtag
+# systemctl stop pki-tomcatd@pki-tomcat
+5. Import the new Server certificate (this requires removing the existing certificate, because the serial number has been reused:
+# certutil -d /etc/pki/pki-tomcat/alias -D -n 'Server-Cert cert-pki-ca'
+# certutil -d /etc/pki/pki-tomcat/alias -A -n 'Server-Cert cert-pki-ca' -t ",," -i /etc/pki/pki-tomcat/certs/sslserver.crt
+6. Start Dogtag
+# systemctl start pki-tomcatd@pki-tomcat
+7. Now that Dogtag is running with the "re-issued" Server-Cert, renew the certificate properly:
+# getcert resubmit -i TRACKING_REQUEST
+
+**DISABLE/BYPASS** **PKI SELF-TEST **
+# pki-server selftest-disable
+Note: expired subsystem cert will cause LDAP authentication failure, but then you can configure Dogtag to use password authentication to LDAP
+
+**IPA RA SERIAL**
+dn: uid=ipara,ou=people,o=ipaca
+description: 2;**98**;CN=Certificate Authority,O=LX.MONASH.EDU;CN=IPA RA,O=LX.MONASH.EDU
+MUST MATCH THE SERIAL IN
+/var/lib/ipa/ra-agent.pem
+
+**CERTIFICATE PROFILES**
+# cat /usr/share/pki/ca/conf/*.profile
+	Serial Number: 98
+
+**ADD CA CERT TO LDAP**
+# ipa-cacert-manage -p <DM-password> -n NICKNAME1 -t C,, install /root/CJD-RootCA.cer
+# ipa-cacert-manage -p <DM-password> -n NICKNAME2 -t C,, install /root/CJD-SubCA10.cer
+# ipa-certupdate
+   
+**ROLL BACK CA (EXT TO SELF-SIGNED)**
+0. Before you start, ensure replication is working properly among all IDM servers in the topology.
+1. Execute `ipa-cacert-manage renew --self-signed` on any IDM CA replica.  This only needs to be done on one replica.
+2. The replica on which that operation is performed will become the "CA renewal master" for the IDM deployment.
+3. Run `ipa-certupdate` on the machine on which the renewal was performed.
+4. On every other CA replica, perform the following steps:
+4.1 Use `getcert list` to find the tracking request ID for the CA certificate (nickname: "caSigningCert cert-pki-ca").
+4.2 Execute `getcert resubmit -i REQUEST_ID`.  This will cause the new CA certificate to be installed in the Dogtag NSSDB on the CA replica.
+4.3 Execute `ipa-certupdate`.
+5. Execute `ipa-certupdate` on other (non-CA) replicas in the IDM topology.
+
+**RHDS** **CERTIFICATE RENEWAL**
+https://access.redhat.com/solutions/41088
+
+**REPLICA CERTS RENEW**
+# ipactl start --ignore-service-failures
+# ipa-csreplica-manage re-initialize --from <master>
+# ipactl restart
+
+**CHECK STATUS**
+# getcert list | egrep "status|expires|Request|subject|ca-error"
+
+**STOP/START TRACKING** **(ca-error: Invalid cookie)**
+# getcert stop-tracking -i 20180823171403
+# getcert start-tracking -k /var/lib/ipa/ra-agent.key -f /var/lib/ipa/ra-agent.pem -B /usr/libexec/ipa/certmonger/renew_ra_cert_pre -C /usr/libexec/ipa/certmonger/renew_ra_cert -c dogtag-ipa-ca-renew-agent
+
+**TEST CERT AGAINST SERVER**
+sslget -v -d /etc/httpd/alias -n "Server-Cert" -w /etc/httpd/alias/pwdfile.txt -r "/ca/admin/ca/getDomainXML" `hostname`:8443|less
+
+**CA CONVERT EXT->SELF-SIGNED**
+02100778
+
+**IPA CA CERT LOCATIONS**
+/etc/ipa/ca.crt 
+/usr/share/ipa/html/ca.crt
+
+**DUMP ALL CERTS TO A FILE**
+# certutil -L -d /etc/httpd/alias/
+# certutil -L -d /etc/httpd/alias/ -n "Server-Cert" -a > /tmp/http_Server-Cert
+# certutil -L -d /etc/httpd/alias/ -n "EXAMPLE.COM IPA CA" -a > /tmp/http_CA-Cert
+
+# certutil -L -d /etc/dirsrv/slapd-EXAMPLE-COM/
+# certutil -L -d /etc/dirsrv/slapd-EXAMPLE-COM/ -n "Server-Cert" -a > /tmp/dirsrv_Server-Cert
+# certutil -L -d /etc/dirsrv/slapd-EXAMPLE-COM/ -n "EXAMPLE.COM IPA CA" -a > /tmp/dirsrv_CA-Cert
+
+# certutil -L -d /etc/pki/pki-tomcat/alias
+# certutil -L -d /etc/pki/pki-tomcat/alias -n "ocspSigningCert cert-pki-ca" -a > /tmp/ca_Server-Cert_ocspSigningCert-cert-pki-ca
+# certutil -L -d /etc/pki/pki-tomcat/alias-n "subsystemCert cert-pki-ca" -a > /tmp/ca_Server-Cert_subsystemCert-cert-pki-ca
+# certutil -L -d /etc/pki/pki-tomcat/alias -n "caSigningCert cert-pki-ca" -a > /tmp/ca_Server-Cert_caSigningCert-cert-pki-ca
+# certutil -L -d /etc/pki/pki-tomcat/alias -n "Server-Cert cert-pki-ca" -a > /tmp/ca_Server-Cert_Server-Cert-cert-pki-ca
+# certutil -L -d /etc/pki/pki-tomcat/alias -n "auditSigningCert cert-pki-ca" -a > /tmp/ca_Server-Cert_auditSigningCert-cert-pki-ca
+
+# tar -cvf /tmp/ca_files.tar  /var/log/ca_*
+
+**BACKUP/RESTORE NSSDB**
+STOP SERVICE
+# systemctl stop pki-tomcatd@pki-tomcat.service
+
+BACKUP
+# certutil -L -d /etc/pki/pki-tomcat/alias -n "caSigningCert cert-pki-ca" -a > /root/caSigningCert.cert-pki-ca.one.crt
+# certutil -L -d /etc/pki/pki-tomcat/alias -n "caSigningCert cert-pki-ca" -a > /root/caSigningCert.cert-pki-ca.two.crt
+
+DELETE ALL CA CERTS (except Server-cert)
+# certutil -D -d /etc/pki/pki-tomcat/alias -n "caSigningCert cert-pki-ca" 
+# certutil -D -d /etc/pki/pki-tomcat/alias -n "caSigningCert cert-pki-ca" 
+
+RESTORE (assumes one is correct)
+# certutil -A -d /etc/pki/pki-tomcat/alias -n "caSigningCert cert-pki-ca"   -t CTu,Cu,Cu -i /root/caSigningCert.cert-pki-ca.one.crt
+
+START SERVICE
+# systemctl start pki-tomcatd@pki-tomcat.service
+
+**RE-INITIALIZE PKINIT**
+# ipa-pkinit-manage disable
+# ipa-pkinit-manage enable
+
+**PROMOTE CA TO MASTER CRL (CA RENEWAL MASTER)**
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/linux_domain_identity_authentication_and_policy_guide/moving-crl-gen-old#promote-cert-renewal-old
+
+https://www.freeipa.org/page/Howto/Promote_CA_to_Renewal_and_CRL_Master
+
+**IPA RENEWAL MASTER**
+# ipa config-show| grep "IPA CA renewal master"
+
+**PKI COMMANDS**
+https://www.dogtagpki.org/wiki/NSS_Database
+
+**PRINT MASTERCRL.BIN**
+# openssl crl -inform der -in [[/var/lib/ipa/pki-ca/publish/MasterCRL.bin]] -text
+
+**CERT** **TYPES**
+.key ← Private
+.pub  ← Public key
+.csr ← Certificate Signing Request
+.crt ← Public key + Name (Either generated by CA Self-signed or VeriSign) 
+.pem ← Public (but can contain Private and Public and other information ie serial, subject, issuer, etc)
+
+**ADD CERT TO IPA**
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/linux_domain_identity_authentication_and_policy_guide/certificates-external-cas
+
+**LDAP LOCATIONS**
+# ldapsearch -LLL -o ldif-wrap=no -Y GSSAPI -b cn=certificates,cn=ipa,cn=etc,dc=unix,dc=phe,dc=gov,dc=uk  &> certificates.txt
+
+**CA SYSTEM **
+1) Dogtag Certificate System(upstream) - Is the certificate server which IPA uses through IPA commands
+ Key Recovery Authority (upstream)
+ pki-tomcatd@pki-tomcat.service (web app/service running in Tomcat container)
+
+2) Certmonger - Is the certificate manager which monitors and auto-renews certificate
+  This is a server-client utility that monitors and auto-renews certificates
+  Commands: **getcert** or **ipa-getcert** 
+
+**CERT STRUCTURE and COMPONENTS**
+**1**) /var/lib/pki/pki-tomcat/alias/ (DOGTAG) must contain all certs in NSS and LDAP(aka CA subsystem)
+	caSigningCert
+	auditSigningCert cert-pki-ca
+	ocspSigningCert cert-pki-ca	
+	subsystemCert cert-pki-ca	used ldap auth
+	Server-Cert cert-pki-ca	
+NOTE: /etc/pki/pki-tomcat/ca/CS.cfg - PKI configuration that is used to copy cert information to the LDAP database. Must be identical from the first 4 subsystem cert above
+COMMAND: "ipa-certupdate" - to update IPA LDAP from NSS
+**2**) /etc/http/alias - HTTP/S connections NSS
+	[[/etc/httpd/conf.d/nss.conf]] NSSNickname Server-Cert
+**3**) /etc/dirsrv/slapd-{domain} - LDAP/S connections NSS
+	[[/etc/dirsrv/slapd-{DOMAIN}dse.ldif]] nsSSLPersonalitySSL: Server-Cert
+**4**) /var/lib/ipa/ra-agent.pem - IPA agent certificate used to connect to CA for cert operations
+	/var/lib/ipa/ra-agent.key
+**5**) /etc/ipa/ca.crt - CA Cert
+
+# ldapsearch -D 'cn=directory manager' -W -b uid=pkidbuser,ou=people,o=ipaca
+
+**KDC CERT REBUILD**
+# ipa-pkinit-manage disable
+The ipa-pkinit-manage command was successful
+# ipa-pkinit-manage enable
+Configuring Kerberos KDC (krb5kdc)
+  [1/1]: installing X509 Certificate for PKINIT
+Done configuring Kerberos KDC (krb5kdc).
+The ipa-pkinit-manage command was successful
+
+
+**UPDATE-CA-TRUST**
+Does it also work without the '-CAfile' option? If not, then they need to copy all their CA certificates (the ones they need to verify the chain) into /etc/pki/ca-trust/source/anchors and then call 'update-ca-trust'. This will update the system wide CA certificate store.
+
+**CA CERT LDAP LOCATION**
+# ldapsearch -xLLL -D "cn=Directory Manager" -W -b 'cn=certificates,cn=ipa,cn=etc,dc=idm,dc=gsslab,dc=rdu2,dc=redhat,dc=com' 'objectclass=pkiCA'
+
+If they don't see the certs in LDAP, please ask them to import them:
+# ipa-cacert-manage -p <DM-password> -n NICKNAME1 -t C,, install /root/CJD-RootCA.cer
+# ipa-cacert-manage -p <DM-password> -n NICKNAME2 -t C,, install /root/CJD-SubCA10.cer
+# ipa-certupdate
+
+**IPA-CERTUPDATE (EXT CERT)**
+ipa-certupdate places the external CA cert into the relevant filesystem locations and NSS security databases:
+∘ /etc/ipa/ca.crt
+∘ /etc/ipa/nssdb NSS security database
+∘ /usr/share/ipa/html/ca.crt (master/replicas only)
+∘ /etc/dirsrv/slapd-REALM and /etc/httpd/alias NSS databases (master/replicas only)
+∘ /etc/pki/pki-tomcat/alias NSS security database (CA clone replicas only)
+
+∘ NOTE: ipa-certupdate must be run on ALL servers and clients in order to retrieve the external CA certificate
+
+**IMPORTING 3rd PARTY CERTS**
+https://www.redhat.com/archives/freeipa-users/2016-January/msg00222.html
+
+**PKI STATUS**
+# pkidaemon status
+# systemctl status pki-tomcatd@pki-tomcat.service
+
+**VERIFY CERT CHAIN**
+# openssl s_client -tls1_2 -showcerts -debug -connect is-rhidm01-v20.lx.monash.edu:443
+# certutil -O -d /etc/httpd/alias/ -n Server-Cert
+
+# openssl verify -verbose -CAfile ca.crt /etc/httpd/conf/server-cert.pem
+# openssl verify -verbose -CAfile <(cat ipa.pem ext.pem) usercert.crt
+
+Check a key
+openssl rsa -in server.key -check
+Check a CSR
+openssl req -text -noout -verify -in server.csr
+Verify a certificate and key matches
+openssl x509 -noout -modulus -in server.crt| openssl md5
+openssl rsa -noout -modulus -in server.key| openssl md5
+
+**VERIFY SUBSYSTEM CERTS**
+# pki-server subsystem-cert-validate ca
+
+**IMPORT/EXPORT CERT FROM NSS DATABASE**
+https://firstyear.id.au/blog/html/2014/07/10/NSS-OpenSSL_Command_How_to:_The_complete_list..html
+https://docs.oracle.com/cd/E19879-01/820-4335/ablrh/index.html
+
+**USE CERT ON LDAP COMMANDS**
+cat /etc/pki/pki-tomcat/alias/pwdfile.txt | LDAPTLS_CACERTDIR=/etc/pki/pki-tomcat/alias/ LDAPTLS_CERT='subsystemCert cert-pki-ca' ldapsearch -H ldaps://`hostname`:636 -b "" -s base -Y EXTERNAL
+
+**SERVER CERT RESTORE TO NSS DB**
+# cat << EOF > ~/ca.ssl.server.crt
+-----BEGIN CERTIFICATE-----
+ADD PUBKEY HERE. MUST HAVE A BACKUP
+-----END CERTIFICATE-----
+EOF
+# lsof -i :8443
+# systemctl stop pki-tomcatd@pki-tomcat.service
+# certutil -A -d /var/lib/pki/pki-tomcat/alias/ -n "Server-Cert cert-pki-tomcat" -t u,u,u -a -i ~/ca.ssl.server.crt
+# certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "Server-Cert cert-pki-tomcat" | less
+# systemctl start pki-tomcatd@pki-tomcat.service
+# lsof -i :8443
+# pkidaemon status
+# pki securitydomain-show
+# pki cert-show 0x3
+# pki-server subsystem-find
+
+**EXPORT CERT FROM NSS TO PEM**
+# pk12util -o server-httpd-alias-export.p12 -d /etc/httpd/alias -n Server-Cert
+# openssl pkcs12 -in server-httpd-alias-export.p12 -out server-cert.pem -nodes
+
+OR
+
+# PKCS12Export -d /etc/pki/pki-tomcat/alias/ -p /etc/pki/pki-tomcat/alias/pwdfile.txt  -w /root/dm_passwd -o /root/cacert1.p12
+
+
+**VERIFY CONTENTS OF P12 **
+# pki pkcs12-cert-find --pkcs12-file /tmp/ca.p12 --pkcs12-password password
+
+**VIEW CERTIFICATE FILES**
+# rct cat-cert [[/usr/share/ipa/html/ca.crt]]
+# echo | openssl s_client -connect uxplptidm01.lx.tech-01.net:443 >/dev/null
+# echo | openssl s_client -CAfile /etc/ipa/ipa.crt -connect uxplptidm01.lx.tech-01.net:443 >/dev/null
+
+**PKI TOMCAT DOES NOT START**
+https://access.redhat.com/solutions/3705201
+
+**RENEW EXPIRED EXT CERT**
+https://access.redhat.com/solutions/272493
+
+**3 WAYS TO ADD A HOST/USER CERTIFICATE TO CA SYSTEM**
+1) certmonger
+GENERATE A CSR
+internatl CA
+# ipa-getcert request -f /etc/httpd/intranet.pem -k /etc/httpd/intranet.key -K http/intranet.example.com -D intranet.example.com
+external CA(cert signed by ext)
+# ipa service-add-cert
+
+SIGNING A CSR (USER)
+# ipa cert-request --profile-id IECUserRoles --certificate-out ~/idmuser01.pem --principal idmuser01@LAB.EXAMPLE.NET /root/idmuser01.csr
+
+RENEWAL
+#  ipa-getcert request -f /etc/httpd/intranet.pem -k /etc/httpd/intranet.key -K http/intranet.example.com -D intranet.example.com
+
+
+2) certutil 
+GENERATE A CSR
+# kinit admin
+# certutil -N -d /root/idmuser01-cert/
+# certutil -R -d /root/idmuser01-cert/ -a -g 4096 -n idmuser01 -s "CN=idmuser01, O=EXAMPLE.COM" > /root/idmuser01.csr
+
+SIGN THE CERT IN IPA (refer to #1 certmonger)
+
+COPY SIGNED CERT TO NSS DB
+# certutil -A -d idmuser01-cert/ -n idmuser01 -t "P,," -i /root/idmuser01.pem
+
+RENEWAL
+# certutil -R -d /root/certdb/ -a -g 4096 -k "NSS Certificate DB:intranet" -s "CN=intranet, O=EXAMPLE.COM" > /root/intranet.csr
+
+3) openssl
+GENERATE A CSR
+# openssl req -new -out /root/intranet.csr -key /root/intranet.key
+
+RENEWAL
+# openssl req -new -out ~/intranet.csr -key [[/root/intranet.key]]
+
+**STEPS TO INSTALL EXTERNAL CERT (UNVERFIED)**
+Official: https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/identity_management_guide/install-ca-options#install-ca-external
+
+1. Install IPA with externally signed CA cert
+ipa-server-install --ip-address ${IP} -r ${RELM} -p ${PASSWORD} -a ${PASSWORD}
+--setup-dns --forwarder ${FORWARDER} -U --external-ca
+
+2. Setup nssdb for external CA
+	mkdir nssdb
+	echo Secret.123 > nssdb/password.txt
+	certutil -N -d nssdb -f nssdb/password.txt
+
+3. Setup external ca
+	openssl rand -out nssdb/noise.bin 2048
+	ROOTCA_SKID="0x`openssl rand -hex 20`"
+	echo -e "y\n\ny\n${ROOTCA_SKID}\n\n" |  certutil -S  -d nssdb  -f
+nssdb/password.txt  -z nssdb/noise.bin  -n "External CA"  -s "CN=External
+CA,O=EXTERNAL"  -x  -t "CTu,CTu,CTu"  -m $RANDOM -2  --extSKID  --keyUsage
+digitalSignature,nonRepudiation,certSigning,crlSigning,critical
+
+4. export external CA chain
+	certutil -L -d nssdb -n "External CA" -a > /tmp/external.crt
+
+5. Sign the ipa.csr from external ca
+	SUBCA_SKID="0x`openssl rand -hex 20`"
+	SUBCA_OCSP="http://$HOSTNAME:8080/ca/ocsp"
+	echo -e
+"y\n\ny\ny\n${ROOTCA_SKID}\n\n\n\n${SUBCA_SKID}\n\n2\n7\n${SUBCA_OCSP}\n\n\n\n"
+|  certutil -C  -d nssdb  -f nssdb/password.txt  -m $RANDOM  -a -i
+/root/ipa.csr  -o /tmp/ca_signing.crt  -c "External CA"  -2 -3  --keyUsage
+digitalSignature,nonRepudiation,certSigning,crlSigning,critical  --extAIA
+--extSKID
+
+6. Start Install and get Certificate Signing Request for externally signed CA
+	ipa-server-install --ip-address ${IP} -r ${REALM} -p ${PASSWORD} -a
+${PASSWORD} --setup-dns --forwarder ${FORWARDER} -U
+--external_cert_file=/tmp/ca_signing.crt  --external_ca_file=/tmp/external.crt
+
+7. Check cert status for certs:
+	getcert list | egrep "status|expires|Request|subject|ca-error"
+
+
+**PASSWORD RECOVERY PRIVATE KEY FILE**
+# grep internal= /var/lib/pki/pki-tomcat/conf/password.conf | awk -F= '{print $2;}'
+then provide that string to the command:
+# certutil -K -d /var/lib/pki/pki-tomcat/alias/
+if it matches, update the file
+# /etc/pki/pki-tomcat/alias/pwdfile.txt
+it has to have the correct permission, ownership and SELinux label
+
+**TYPE OF CERTIFICATES**
+USER (i.e: no certmonger)
+create an NSS database store
+create a CSR
+IPA signs the CSR and generate a PUB key(pem file) 
+
+SERVICE OR SERVICE (i.e: with certmonger)
+Add the service in IPA
+Generate PRIV and PUB keys (cert and pem files)
+Certmonger will sign and auto-renew the cert
+
+**VERIFY CERT DATA IN NSS DB vs LDAP**
+# certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "subsystemCert cert-pki-ca" -a 
+SHOULD MATCH CERT BLOB
+# openssl x509 -in tomcat_subsystemCert.txt -noout -text
+# cat /var/lib/ipa/ra-agent.pem  <<-- cert blob
+
+**IPARA (RA-AGENT)**
+CERT RENEWAL
+https://access.redhat.com/solutions/1490603
+# cat /var/lib/ipa/ra-agent.pem
+# openssl x509 -in /var/lib/ipa/ra-agent.pem -noout -text
+# ldapsearch -H ldap://`hostname` -D 'cn=Directory Manager' -W -b "o=ipaca"  uid=ipara
+LOGS
+/var/log/pki/pki-tomcat/ca/system
+
+
+**VERIFY RA CERT AGAINST CA**
+# curl --cacert /etc/ipa/ca.crt --cert /var/lib/ipa/ra-agent.pem --key /var/lib/ipa/ra-agent.key https://`hostname -f`:8443/ca/agent/ca/displayBySerial?serialNumber=0x1 |head -50
+
+ # openssl x509 -noout -text -in /var/lib/ipa/ra-agent.pem
+ # ldapsearch -x -h localhost -p 389 -D 'cn=directory manager' -W -b uid=ipara,ou=People,o=ipaca
+
+VERIFICATION
+# openssl x509 -in /var/lib/ipa/ra-agent.pem -noout -text | grep Serial <<-- cert serial
+SHOULD MATCH SERIAL
+# ldapsearch -x -h localhost  -D 'cn=directory manager' -w RedHat1! -b uid=ipara,ou=People,o=ipaca
+OR
+# ldapsearch -D "cn=directory manager" -W -b "uid=pkidbuser,ou=People,o=ipaca" <<-- OLD VER
+description: 2;**4**; <<-- Serial 
+
+
+
+IF NOT, REPLACE BLOB AND SERIAL NUMBER:
+Get serial: 
+# openssl x509 -in /var/lib/ipa/ra-agent.pem -noout -text | grep -i serial
+Get blob:
+# cat /var/lib/ipa/ra-agent.pem   | sed -rn '/^-----BEGIN CERTIFICATE-----$/{:1;n;/^-----END CERTIFICATE-----$/b2;H;b1};:2;${x;s/\s//g;p}'  > /tmp/ipaCert.pem
+
+# ldapmodify -x -h localhost -p 389 -D 'cn=directory manager' -w password
+dn: uid=ipara,ou=people,o=ipaca
+changetype: modify
+add: usercertificate
+usercertificate:: <<PASTE NEW AGENT CERTIFICATE BLOB HERE>>
+-
+replace: description
+description: 2;<<INSERT NEW SERIAL NUMBER HERE>>;CN=Certificate Authority,O=EXAMPLE.COM;CN=IPA RA,O=EXAMPLE.COM
+^D to save and exit
+
+
+
+**IPA** **RENEW EXPIRED CERTS MANUALLY **
+OPTION 1: (Verified working)
+1) Stop and disable ntpd 
+# systemctl stop ntpd; systemctl disable ntpd
+
+2) Set the date back a little further to 2018-10-28 00:00:00 
+ # date 102800002018
+
+3) Stop IPA services
+# ipactl stop
+
+4) Start PKI and DIRSRV
+# systemctl start dirsrv@<instance_name>; systemctl start pki-tomcatd@pki-tomcat.service
+
+5) Resubmit the expired cert
+ # getcert resubmit -i <Request ID> 
+
+6) Restart certmonger
+ # systemctl restart certmonger
+ 
+7) Verified that the cert is renewed:
+# getcert list
+
+8) Once the cert is renewed, enable ntpd and set the date back to current
+# systemctl enable ntpd; systmectl start ntpd
+
+9) Start IPA services
+# ipactl start
+
+10) Verify that certs are all current 
+# getcert list
+
+OPTION 2:
+1) Restart IPA
+ # ipactl stop ; ipactl start
+2) Stop ntpd
+ # systemctl stop ntpd
+3) Set the date back a little further to 2018-06-08 00:00:00 UTC.
+ # date 060800002018
+4) Resubmit the expired certs again.
+ # getcert resubmit -i 20180815091840 -w -v
+ # getcert resubmit -i 20180815091949 -w -v
+ # getcert resubmit -i 20180815092001 -w -v
+ # getcert resubmit -i 20180815092021 -w -v
+ # getcert resubmit -i 20180815125140 -w -v
+ # getcert resubmit -i 20180815152502 -w -v
+ # getcert resubmit -i 20180815152514 -w -v
+5) Restart certmonger and IPA.
+ # systemctl restart certmonger
+ # ipactl stop ; ipactl start
+6) Wait 1 minute after IPA is back up and check the cert status.
+ # getcert list
+
+**VERIFY CERT IN DOGTAG**
+# pki-server cert-find --show-all
+# pki-server subsystem-cert-validate ca
+
+**VERIFY SUBSYSTEM CERTIFICATE**
+pki-server subsystem-find
+pki-server subsystem-cert-find ca
+
+**SMARTCARDS**
+PKINIT
+The process of pre authentication which encrypts the time + the public key to generate a session key before a TGT can be granted to a requesting host/user.
+
+SERVER 
+CHECK PKINIT STATUS
+# ipa pkinit-status
+GENERATE A CLIENT SETUP SCRIPT
+# ipa-advise config-client-for-smart-card-auth > /root/client_pkinit.sh
+# chmod u+x [[/root/client_pkinit.sh]]
+ENABLE IDM SERVER WEB UI FOR SMARTCARD AUTH 
+# ipa-advise config-server-for-smart-card-auth > ~/server_pkinit.sh
+# [[./server_pkinit.sh]]
+# rpm -q sssd-dbus
+
+CLIENT
+# ./client_pkinit.sh [[/etc/pki/Demo-CA.crt]]
+# rpm -q krb5-pkinit
+
+**RENEW EXTERNAL CERT ON IDM CA**
+https://access.redhat.com/solutions/272493
+
+**RENEWAL MASTER IPA SERVER MANUAL**
+https://access.redhat.com/solutions/643753
+
+**RENEWAL REPLICA IPA SERVER MANUAL**
+https://access.redhat.com/solutions/962373
+
+**RENEWAL OF IPA CERT**
+# getcert resubmit -d /etc/pki/pki-tomcat/alias -n "auditSigningCert cert-pki-ca"
+# getcert resubmit -d /etc/pki/pki-tomcat/alias -n "ocspSigningCert cert-pki-ca"
+# getcert resubmit -d /etc/pki/pki-tomcat/alias -n "subsystemCert cert-pki-ca"
+
+**UNINSTALL PKI**
+# pkidestroy -s CA -i pki-tomcat
+then rename the '/var/lib/pki/pki-tomcat/ca' directory
+
+**COMMANDS**
+# pkidaemon status
+# systemctl status pki-tomcatxxx
+
+**TROUBLESHOOTING**
+https://access.redhat.com/solutions/3081821
+https://www.freeipa.org/page/Troubleshooting/PKI
+
+ENALBLE DEBUGGING
+# vim /etc/ipa/default.conf
+debug = True
+# service httpd restart
+# ipa-replica-install --setup-ca --other arguements--
+# tar -cvf /tmp/pki.tar  /var/log/pki*
+
+
+LOGS
+/var/log/pki*toas
+/var/lib/pki/pki-tomcat
+/var/lib/pki/pki-tomcat/logs/ca/*
+
+PKI COMPARING NSS AND LDAP - BLOB AND SERIAL NUMBER
+# ldapsearch -D 'cn=directory manager' -W -b uid=pkidbuser,ou=people,o=ipaca
+# certutil -d /etc/pki/pki-tomcat/alias/ -L -n 'subsystemCert cert-pki-ca' -a
+DIRSRV CHECK THAT THE TRUST IS INSTALLED
+# certutil -d /etc/dirsrv/slapd-DOMAIN-COM -L
+COLLECT LOGS
+# openssl x509 -in /var/lib/ipa/ra-agent.pem -noout -text
+# ldapsearch -x -h localhost -p 389 -D 'cn=directory manager' -W -b uid=ipara,ou=People,o=ipaca
+# getcert list
+# certutil -L -d /var/lib/pki/pki-tomcat/alias/
+# certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "ocspSigningCert cert-pki-ca" -a > /tmp/tomcat_ocspSigningCert.txt
+# certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "subsystemCert cert-pki-ca" -a > /tmp/tomcat_subsystemCert.txt
+# certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "auditSigningCert cert-pki-ca" -a > /tmp/tomcat_auditSigningCert.txt
+# certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "caSigningCert cert-pki-ca" -a > /tmp/tomcat_caSigningCert.txt
+# certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "Server-Cert cert-pki-ca" -a > /tmp/tomcat_server-cert.txt
+Share file /tmp/tomcat_* with case along with /etc/pki/pki-tomcat/ca/CS.cfg and /var/log/pki
+# tar czvf /tmp/certs_$(hostname -s)__$(date +%F_%H%M%S).tar.gz /tmp/tomcat_ocspSigningCert.txt  /tmp/tomcat_subsystemCert.txt /tmp/tomcat_auditSigningCert.txt /tmp/tomcat_caSigningCert.txt  /tmp/tomcat_server-cert.txt /etc/pki/pki-tomcat/ca/CS.cfg /var/log/pki
+
+Config file
+	[[/etc/pki-ca/CS.cfg]]
+Log
+	[[/var/log/pki]]
+Debug
+	log.instance.System.level <- add to config file above and;
+	restart pki instance
+https://access.redhat.com/documentation/en-US/Red_Hat_Certificate_System/8.1/html/Admin_Guide/java-logs.html#Configuring_Logs_in_the_CS.cfg_File
+
+
+
+1) HTTP
+	  ====
+
+	  # certutil -L -d /etc/httpd/alias
+
+	  # certutil -L -d /etc/httpd/alias -n "Signing-Cert" -a > /tmp/http_signing-cert.txt
+
+	  # cat /var/lib/ipa/ra-agent.pem > /tmp/http_ipacert.txt
+
+	  # certutil -L -d /etc/httpd/alias -n "Server-Cert" -a > /tmp/http_server-cert.txt
+
+	  # certutil -L -d /etc/httpd/alias -n "BARQSYSTEMS.LOCAL IPA CA" -a > /tmp/http_ca-cert.txt
+
+
+   2) DIRSRV
+	  =======
+
+	  # certutil -L -d /etc/dirsrv/slapd-BARQSYSTEMS-LOCAL/
+
+	  # certutil -L -d /etc/dirsrv/slapd-BARQSYSTEMS-LOCAL/ -n "Server-Cert" -a > /tmp/dirsrv_server-cert.txt
+
+	  # certutil -L -d /etc/dirsrv/slapd-BARQSYSTEMS-LOCAL/ -n "BARQSYSTEMS.LOCAL IPA CA" -a > /tmp/dirsrv_ca-cert.txt
+
+
+   3) PKI-Tomcat
+	  ==========
+
+	  # certutil -L -d /var/lib/pki/pki-tomcat/alias/
+
+	  # certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "ocspSigningCert cert-pki-ca" -a > /tmp/tomcat_ocspSigningCert.txt
+
+	  # certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "subsystemCert cert-pki-ca" -a > /tmp/tomcat_subsystemCert.txt
+
+	  # certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "auditSigningCert cert-pki-ca" -a > /tmp/tomcat_auditSigningCert.txt
+
+	  # certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "caSigningCert cert-pki-ca" -a > /tmp/tomcat_caSigningCert.txt
+
+	  # certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "Server-Cert cert-pki-ca" -a > /tmp/tomcat_server-cert.txt
+
+Then run the below command
+
+# tar -zcvf /tmp/ipa-certs.tar.gz /tmp/tomcat_*   /tmp/dirsrv_* /tmp/http_* /var/log/dirsrv*  /var/log/krb5kdc.log
+
+and share file "/tmp/ipa-certs.tar.gz"
+
+
+**NOTES**
+I confirmed that an empty-valued 'ca.cert.list' parameter in CS.cfg will cause a shutdown of the CA, and that removing only the audit certificate from the list is enough.
+
+New instructions:
+
+1. Edit and save CS.cfg:
+   Change the line:
+	 ca.cert.list=
+   to:
+	 ca.cert.list=signing,ocsp_signing,sslserver,subsystem
+
+Also, because the Dogtag CA subsystem certificate is still expired, the CA engine will shut down as it cannot use the certificate to make a secure connection to its LDAP back-end during service start-up. To work around this, switch to Basic authentication:
+
+1. Add the Directory Manager password to /etc/pki/pki-tomcat/password.conf:
+	internaldb=<Directory Manager password>
+2. Edit and save CS.cfg:
+Change these lines:
+
+internaldb.ldapauth.authtype=SslClientAuth
+internaldb.ldapauth.bindDN=uid=pkidbuser,ou=people,o=ipaca
+internaldb.ldapconn.port=636
+internaldb.ldapconn.secureConn=true
+
+to:
+
+internaldb.ldapauth.authtype=BasicAuth
+internaldb.ldapauth.bindDN=cn=Directory Manager
+internaldb.ldapconn.port=389
+internaldb.ldapconn.secureConn=false
+
+Once these changes have been completed, attempt to start IPA with the system date rolled back, as before. Dogtag CA will skip verification of the audit signing certificate and use Basic authentication for its LDAP connection. Assuming all subsystems start correctly, re-attempt renewal of the expired certificates. 
+
+
+**RA-AGENT VERIFICATION**
+1. Extract the serial number (decimal) from the RA certificate:
+	 # openssl x509 -in /var/lib/ipa/ra-agent.pem -text |grep Serial
+		 Serial Number: 20 (0x14)
+
+ 2. Query LDAP for RA certificate data using its serial number, note the value to the 'requestId' parameter:
+	 # ldapsearch -D "cn=Directory Manager" -W -s sub -b cn=20,ou=certificateRepository,ou=ca,o=ipaca metainfo | grep -i requestid
+		 metainfo: requestId:20
+
+ 3. Query LDAP for request data for the RA certificate matching the request ID from the output in Step 2 and output to file for review:
+	 # ldapsearch -D "cn=Directory Manager" -W -s sub -b cn=20,ou=ca,ou=requests,o=ipaca > reqdata-ipara.out
+
+ 4. Query LDAP for all requests for certificates with subject containing 'CN=IPA RA' and output to file for review:
+	 # ldapsearch -D "cn=Directory Manager" -W -s sub -b ou=ca,ou=requests,o=ipaca extdata-req--005fsubject--005fname--002ecn="IPA RA"  > 002ecn-ipara.out
+
+
+
+
+**RH362**
+**CERT MANAGEMENT**
+VIA CERTMONGER
+# ipa-getcert request --help
+
+VIA CERTUTIL
+# 
+
+**RENEW EXPIRED SUBSYSTEM CERTS**
+There's a way to temporarily disable the Dogtag start-up certificate self-tests ->
+
+  # pki-server selftest-disable
+
+Try this with the time and date set correctly and see if the CA then starts-up. Note that we'll also still need to temporarily switch Dogtag's backend LDAP connection to Basic Auth, since the subsystem certificate is still expired, so make sure to do this before attempting to start up IPA ->
+
+1. Add the Directory Manager password to /var/lib/pki-ca/conf/password.conf:
+
+	internaldb=<Directory Manager password>
+
+2. Edit and save CS.cfg:
+
+Change these lines:
+
+internaldb.ldapauth.authtype=SslClientAuth
+internaldb.ldapauth.bindDN=uid=pkidbuser,ou=people,o=ipaca
+internaldb.ldapconn.port=636
+internaldb.ldapconn.secureConn=true
+
+to:
+
+internaldb.ldapauth.authtype=BasicAuth
+internaldb.ldapauth.bindDN=cn=Directory Manager
+internaldb.ldapconn.port=389
+internaldb.ldapconn.secureConn=false
+
+
+**REFERENCES**
+Expired KDC certificate
+https://gss--c.na7.visual.force.com/apex/Case_View?id=500A000000cEq7jIAC&sfdc.override=1
+
+
+**CERT DUMP**
+1) HTTP
+   ====
+
+   # certutil -L -d /etc/httpd/alias/ > /tmp/http_list
+   # certutil -L -d /etc/httpd/alias/ -n "Server-Cert" -a > /tmp/http_Server-Cert.txt
+   # certutil -L -d /etc/httpd/alias/ -n "IPA.VSNL.CO.IN IPA CA" -a > /tmp/http_CA-Cert.txt
+   # cat /var/lib/ipa/ra-agent.pem > /tmp/http_ipaCA.txt
+
+2) DIRSRV
+   ======
+   # certutil -L -d /etc/dirsrv/slapd-IPA-VSNL-CO-IN/ > /tmp/dirsrv_list
+   # certutil -L -d /etc/dirsrv/slapd-IPA-VSNL-CO-IN/ -n "Server-Cert" -a > /tmp/dirsrv_Server-Cert.txt
+   # certutil -L -d /etc/dirsrv/slapd-IPA-VSNL-CO-IN/ -n "IPA.VSNL.CO.IN IPA CA" -a > /tmp/dirsrv_CA-Cert.txt
+
+3) Tomcat
+   ======
+   # certutil -L -d /var/lib/pki/pki-tomcat/alias/ > /tmp/tomcat_list
+   # certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "ocspSigningCert cert-pki-ca" -a > /tmp/tomcat_ocspSigningCert.txt
+   # certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "subsystemCert cert-pki-ca" -a > /tmp/tomcat_subsystemCert.txt
+   # certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "auditSigningCert cert-pki-ca" -a > /tmp/tomcat_auditSigningCert.txt
+   # certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "caSigningCert cert-pki-ca" -a > /tmp/tomcat_caSigningCert.txt
+   # certutil -L -d /var/lib/pki/pki-tomcat/alias/ -n "Server-Cert cert-pki-ca" -a > /tmp/tomcat_server-cert.txt
+
+
+4) LDAP (Both from Issue IPA server and IPA master server).
+   ====
+
+   - From IPA Master
+	 ---------------
+ 
+	 # start-dirsrv
+	 # ldapsearch -h 127.0.0.1 -D "cn=Directory Manager" -W -b "o=ipaca" -x > /tmp/ldap_ipaca_master.txt
+
+   - From IPA Issue Replica
+	 -----------------------
+
+	 # start-dirsrv
+	 # ldapsearch -h 127.0.0.1 -D "cn=Directory Manager" -W -b "o=ipaca" -x > /tmp/ldap_ipaca_replica.txt
+
+5) Create Tar File
+
+   # tar -zcvf /tmp/ipaserver-certs.tar.gz /tmp/http_* /tmp/dirsrv_* /tmp/tomcat_* /tmp/ldap_*  /etc/pki/pki-tomcat/ca/CS.cfg
+
+6) Once step 1 - 5 is complete Share  
+
+   - Share file /tmp/ipaserver-certs.tar.gz
+
+   - Share fresh sosreport from the IPA master and replica servers. 
+
+
+
+**TRAINING NOTES**
+
+pub cert of AD in client? No, just in IPA server and use this CA to sign the service/server certs
+
+cn=certificates,ipa,etc,ipa,local cert store in ldap
+cn=ca_renewal,ipa,etc,ipa,local
+
+how certmonger copy to ldap?
+
+pkidbuser dogtag user to auth ldap
+
+ipaca is a cert that use to connect to dogtag
+
+ipa ca-find
+https://dogtag:8443 
+
+ipa-cert-update creates a certmonger tracking request
+
+authorities,ca,ipaca ca cert location in ldap

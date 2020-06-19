@@ -1,0 +1,34 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-03-12T14:32:59+10:00
+
+https://access.redhat.com/solutions/1427363
+http://sadiquepp.blogspot.com.au/2009/02/how-to-configure-autofs-maps-in-ldap.html
+
+**CONFIGURATION**
+[[/etc/sssd/sssd.conf]]
+[services]
+autofs
+[[/etc/nsswitch.conf]]
+automount: files sss
+
+**AUTOFS IN LDAP**
+INDIRECT MOUNT
+https://access.redhat.com/solutions/29504
+DIRECT MOUNT
+http://sadiquepp.blogspot.com.au/2009/02/how-to-configure-autofs-maps-in-ldap.html
+
+**SETTING UP IPA CLIENT** 
+# ipa-client-automount --uninstall
+# ipa-client-automount --server=ipa.example.com --location=ipauserhome
+# authconfig --update --enablesssd --enablesssdauth --enablemkhomedir
+
+**TROUBLESHOOTING**
+# automount --dumpmaps
+# ipa automountlocation-tofiles ipauserhome
+
+DEBUG
+https://access.redhat.com/solutions/58139
+# systemctl stop autofs
+# automount -df
+

@@ -1,0 +1,137 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Email: idm-tech@redhat.com
+Creation-Date: 2018-02-15T10:50:53+10:00
+
+https://access.redhat.com/articles/1153563
+
+**IDM-TECH ARCHIVES**
+http://post-office.corp.redhat.com/archives/idm-tech/
+
+**QUICKLAB**
+# curl https://gitlab.cee.redhat.com/cee_ops/quicklab/raw/master/docs/quicklab.key --output ~/.ssh/quicklab.key
+# chmod 600 ~/.ssh/quicklab.key
+# ssh -i ~/.ssh/quicklab.key -o "UserKnownHostsFile /dev/null" -o "StrictHostKeyChecking no" quicklab@
+
+**EXTRACT ZIP FILES**
+# 7za x -pRe@D1ng123 mygov_issues.zip
+
+**ALTERNATIVES**
+# alternatives --config python
+
+**IRC CHEAT SHEET**
+!rhatwho Nick Almond
+
+**LIST IN ROWS**
+# id swaja|sed -e 's/,/\n/g'
+
+**DATE**
+# date --utc
+
+**DROPBOX**
+wget ftp://ftp:Mawn_Fep2@flopbox.corp.redhat.com/
+
+**CREATE LOG TARBALL**
+# tar czvf /tmp/pam-env-debug__$(hostname -s)__$(date +%F_%H%M%S).tar.gz /var/log/{secure,messages,sssd}
+
+**JOURNAL**
+# journalctl -l -u httpd.service
+
+**DIFF**
+# diff -Nrua orig/pam.d/password-auth cust/pam.d/password-auth
+
+**RPM**
+# rpm -Va openldap-servers
+# rpm -Va > /tmp/rpm_Va.out 2>&1
+https://docs.fedoraproject.org/en-US/Fedora_Draft_Documentation/0.1/html/RPM_Guide/ch04s04.html
+
+**RPM EXTRACT**
+# rpm2cpio samba-4.2.10-5.el7_1.src.rpm |cpio -id
+
+**NETSTAT**
+# netstat -plantu
+
+**PASSWD VERIFY**
+# pwck
+
+**PROVIDES**
+# yum whatprovides */pam_access.so
+# rpm -qf */pam_access.so
+
+**ID SEGMENTED RESULTS**
+# id rziemiecki | tr "," "\n"
+
+**TCPDUMP**
+# tcpdump -nn -s0 -i any -w /tmp/tcpdump.pcap
+# tcpdump -n -C 250M -s 0 -i INTERFACE -w OUTPUTFILE host NFS-SERVER-IP
+# gzip OUTPUTFILE
+# tcpdump -As0 -vvnn -r <pcap>
+# tcpdump -nn -s0 -i any port 88 or port 389 -w /tmp/tcpdump.pcap 
+# tcpdump -s0 -w ldap.pcap 'host <ldap.server.ip.address>'
+# tcpdump -s0 -i <interface> -w /tmp/dump-$(date +%d%m%Y-%H%M%S-%N).pcap
+# tcpdump -s0 -i eth0 host res9915 -w /tmp/nfs-server-krb5.pcap &
+# tcpdump -nn -s0 -i any host 10.44.224.198 -w /tmp/tcpdump-adtrust.pcap
+
+# tcpick -C -yP -r tcp_dump.pcap ← Reading pcap file
+
+**TCPDUMP SFTP**
+# script /tmp/ftp.log
+# tcpdump -s 0 -n -i ethX -w /tmp/$(hostname)-$(date +"%Y-%m-%d-%H-%M-%S").pcap &
+try ftp from source to destination.
+(please attempt to transfer a file that fails, then quit from the ftp client)
+# fg
+(Press Ctrl+C to stop the foregrounded tcpdump)
+# exit
+
+**TIME_WAIT**
+# netstat -nat | awk '{print $6}' | sort | uniq -c | sort -n
+
+**TSHARK**
+# tshark -V -tad -r 20-tcpdump_cifs_1.pcap 'frame.number == 50'
+
+**WIRESHARK**
+# readlink etc/localtime
+# TZ="CET" wireshark brokenupdates.pcap &
+
+**STRACE**
+https://access.redhat.com/articles/2483
+# strace -fvttTo /tmp/strace.out -s 1024 <command>
+# /usr/bin/strace -ffxvto [[/tmp/ntlm_auth.strace]] <command>
+**PSTACK**
+# ldapsearch -D "cn=directory manager" -W -b "cn=config" '(objectclass=nsds5replicationagreement)'
+While the above command is hung, open another terminal and issue command:
+# pstack `pidof ns-slapd` > /tmp/pstack.out 
+
+**MAN PAGES**
+# mandb
+# apropos passwd
+# info passwd
+# man -wK "krb5_validate" | grep sss
+
+**RPM**
+**QUERY DOCUMENTATION**
+# rpm -qd
+**QUERY CONFIGURATION**
+# rpm -qc
+**QUERY FILES USED** 
+# rpm -ql nfs-utils
+
+**LOCATE**
+# udpatedb
+# locate file
+# locate '*/pam_deny.so'
+
+**FIND**
+# find . -type f -size +4G
+# find -size +30M -size -40M
+# find / -type f -name filename* -user john -exec `rm {}\;`
+
+**GREP**
+# egrep "word1.*word2" *
+# grep -v "^#" *
+
+**ISO**
+# root@10.64.24.110 | angryman
+
+**PHONES**
+# 9011 + country code

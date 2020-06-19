@@ -1,0 +1,45 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2018-04-05T14:47:06+10:00
+
+https://access.redhat.com/documentation/en-US/Red_Hat_Directory_Server/8.1/html/Administration_Guide/Managing_SSL-Using_certutil.html
+
+**TRUST FLAGS**
+are of the form "A,B,C" or "A,B,C,D" where A is for SSL, B is for S/MIME, C is for code signing, and D is for PKINIT. Use ",," for no explicit trust.
+
+
+**LIST CERT**
+# certutil -L -d [[/etc/dirsrv/slapd-PHATALIPA-COM/]] |sort
+# certutil -d /etc/httpd/alias -L 
+# certutil -d /etc/pki-tomcat/alias -L 
+
+# certutil -L -d /etc/dirsrv/slapd-<instance>
+# certutil -L -d /etc/dirsrv/slapd-<instance> -n <nickname of the certificate>
+
+**UPDATE CERT**
+# certutil -M -d /etc/dirsrv/slapd-NIX-US-KWORLD-KPMG-COM -n "CERTNAME" -t "CT,C,C"
+
+
+**To Export the subsystem certs:**
+# certutil -L -d /etc/pki/pki-tomcat/alias -n 'auditSigningCert cert-pki-ca' -a > audit_cert.pem
+# certutil -L -d /etc/pki/pki-tomcat/alias -n 'ocspSigningCert cert-pki-ca' -a > ocsp_cert.pem
+
+**To export the CA certs:**
+# certutil -L -d /etc/pki/pki-tomcat/alias -n 'caSigningCert cert-pki-ca 552d4df9-d e8f-4a7c-8698-20d5512f154f' > subca_cert.pem
+# certutil -L -d /etc/pki/pki-tomcat/alias -n 'caSigningCert cert-pki-ca' > selfsign_cert.pem
+
+**To verify:**
+# openssl verify -verbose -CAfile subca_cert.prm audit_cert.pem
+# openssl verify -verbose -CAfile subca_cert.prm ocsp_cert.pem
+
+# openssl verify -verbose -CAfile selfsign_cert.prm audit_cert.pem
+# openssl verify -verbose -CAfile selfsign_cert.prm ocsp_cert.pem
+
+**ALLOW APACHE TO RUN WITH EXPIRED CERTS**
+# cat /etc/httpd/conf.d/nss.conf
+# NSSEnforceValidCerts off <<-- disable
+
+**CACERT FILE TESTING**
+# certutil -L -d /etc/httpd/alias/ -n "EXAMPLE.COM IPA CA" -a > /tmp/ipa-ca.crt <<-- dump the cert from nssdb
+# echo | openssl s_client -connect example.com:636 -CAfile /tmp/ipa-ca.crt
+# echo | openssl s_client -connect example.com:443  -CAfile /tmp/ipa-ca.crt
