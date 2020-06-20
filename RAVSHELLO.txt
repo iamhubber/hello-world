@@ -1,8 +1,0 @@
-Content-Type: text/x-zim-wiki
-Wiki-Format: zim 0.4
-Creation-Date: 2018-02-16T16:14:21+10:00
-
-https://mojo.redhat.com/docs/DOC-987131#jive_content_id_Installing_ravshello_rpm_FedoraRHEL7
-
-# new cee-id-003-v1.0
-# curl --create-dirs -o .ssh/\#1 training.gsslab.rdu2.redhat.com/{gssTrng0_rsa}

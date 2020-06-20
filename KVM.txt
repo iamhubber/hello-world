@@ -1,7 +1,0 @@
-Content-Type: text/x-zim-wiki
-Wiki-Format: zim 0.4
-Creation-Date: 2018-02-15T10:38:34+10:00
-
-**Install KVM**
-# yum install qemu-kvm qemu-img
-# yum install virt-manager libvirt libvirt-python python-virtinst libvirt-client

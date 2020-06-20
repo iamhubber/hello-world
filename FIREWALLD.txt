@@ -1,7 +1,0 @@
-Content-Type: text/x-zim-wiki
-Wiki-Format: zim 0.4
-Creation-Date: 2018-02-15T10:58:00+10:00
-
-====== FIREWALLD ======
-Created Thursday 15 February 2018
-

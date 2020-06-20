@@ -1,8 +1,0 @@
-Content-Type: text/x-zim-wiki
-Wiki-Format: zim 0.4
-Creation-Date: 2018-06-07T09:57:46+10:00
-
-
-http://pastebin.test.redhat.com/599744
-http://pastebin.test.redhat.com/599745
-http://pastebin.test.redhat.com/599746

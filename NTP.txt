@@ -1,9 +1,0 @@
-Content-Type: text/x-zim-wiki
-Wiki-Format: zim 0.4
-Creation-Date: 2018-02-15T11:34:03+10:00
-
-# timedatectl -h
-# timedatectl -set-ntp true
-# tzselect
-# chronyc source -v
-# ntpdate time.google.com
